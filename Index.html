@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>도시가스 공급시설 CBT</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+
+:root {
+  --primary:  #1e40af;
+  --primary-light: #dbeafe;
+  --accent:   #2563eb;
+  --green:    #16a34a;
+  --green-bg: #dcfce7;
+  --red:      #dc2626;
+  --red-bg:   #fee2e2;
+  --orange:   #ea580c;
+  --orange-bg:#ffedd5;
+  --gray-50:  #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-700: #374151;
+  --gray-900: #111827;
+}
+
+* { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+html, body { height:100%; overflow-x:hidden; }
+body { font-family:'Noto Sans KR', sans-serif; background:#fff; color:var(--gray-900); font-size:15px; }
+
+/* ══════════════════════════════
+   화면이탈 오버레이
+══════════════════════════════ */
+#leaveOverlay {
+  display:none; position:fixed; inset:0; z-index:99999;
+  background:rgba(0,0,0,.88);
+  flex-direction:column; align-items:center; justify-content:center;
+  padding:32px 24px; text-align:center;
+}
+#leaveOverlay.show { display:flex; }
+.lo-icon  { font-size:56px; margin-bottom:14px; animation:shake .45s ease; }
+.lo-title { font-size:20px; font-weight:700; color:#fff; margin-bottom:8px; }
+.lo-msg   { font-size:13px; color:#9ca3af; line-height:1.7; margin-bottom:20px; max-width:320px; }
+.lo-box   {
+  background:rgba(220,38,38,.15); border:1.5px solid rgba(220,38,38,.5);
+  border-radius:12px; padding:14px 32px; margin-bottom:20px;
+}
+.lo-box-label { font-size:11px; color:#f87171; margin-bottom:3px; }
+.lo-box-num   { font-size:36px; font-weight:700; color:#f87171; font-family:'JetBrains Mono',monospace; line-height:1; }
+.lo-box-warn  { font-size:11px; color:#9ca3af; margin-top:4px; }
+.lo-btn {
+  background:#fff; color:var(--gray-900);
+  font-size:15px; font-weight:700; padding:13px 0;
+  border:none; border-radius:10px; cursor:pointer;
+  width:100%; max-width:260px; font-family:'Noto Sans KR',sans-serif;
+}
+.lo-timer { font-size:12px; color:#6b7280; margin-top:10px; }
+@keyframes shake {
+  0%,100%{transform:translateX(0)} 20%{transform:translateX(-7px)}
+  40%{transform:translateX(7px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)}
+}
+
+/* ══════════════════════════════
+   LANDING
+══════════════════════════════ */
+#landing {
+  min-height:100vh; background:#fff;
+  display:flex; flex-direction:column; align-items:center;
+  padding:40px 20px 48px;
+}
+
+.land-header {
+  width:100%; max-width:480px; margin-bottom:32px;
+  display:flex; flex-direction:column; align-items:flex-start; gap:4px;
+}
+.land-kgs  { font-size:11px; font-weight:700; color:var(--primary); letter-spacing:2px; }
+.land-title { font-size:26px; font-weight:900; color:var(--gray-900); line-height:1.2; }
+.land-sub   { font-size:13px; color:var(--gray-400); margin-top:2px; }
+.land-divider { width:100%; max-width:480px; height:1px; background:var(--gray-100); margin-bottom:28px; }
+
+/* 정보 칩 */
+.info-chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:28px; width:100%; max-width:480px; }
+.chip {
+  display:flex; align-items:center; gap:5px;
+  background:var(--gray-50); border:1px solid var(--gray-200);
+  border-radius:8px; padding:6px 12px;
+  font-size:12px; font-weight:600; color:var(--gray-700);
+}
+.chip-dot { width:6px; height:6px; border-radius:50%; background:var(--primary); flex-shrink:0; }
+
+/* 입력 섹션 */
+.form-section { width:100%; max-width:480px; margin-bottom:20px; }
+.form-label   { font-size:12px; font-weight:700; color:var(--gray-500); letter-spacing:.5px; margin-bottom:8px; display:block; }
+
+.text-field {
+  width:100%; border:1.5px solid var(--gray-200); border-radius:10px;
+  padding:12px 14px; font-size:15px; font-family:'Noto Sans KR',sans-serif;
+  color:var(--gray-900); background:#fff; outline:none; transition:border-color .15s;
+}
+.text-field:focus { border-color:var(--accent); }
+.text-field::placeholder { color:var(--gray-300); }
+
+/* 직급/팀 선택 그리드 */
+.select-grid {
+  display:grid; gap:8px; width:100%;
+}
+.select-grid.rank-grid { grid-template-columns:repeat(3,1fr); }
+.select-grid.team-grid { grid-template-columns:repeat(2,1fr); }
+
+.sel-btn {
+  border:1.5px solid var(--gray-200); border-radius:10px;
+  padding:10px 8px; text-align:center; cursor:pointer;
+  background:#fff; font-size:13px; font-weight:500;
+  color:var(--gray-700); font-family:'Noto Sans KR',sans-serif;
+  transition:all .15s; line-height:1.3;
+}
+.sel-btn:hover  { border-color:var(--accent); background:var(--primary-light); color:var(--primary); }
+.sel-btn.active { border-color:var(--accent); background:var(--primary-light); color:var(--primary); font-weight:700; }
+
+/* 경고 박스 */
+.warn-box {
+  width:100%; max-width:480px;
+  border:1px solid var(--gray-200); border-radius:10px;
+  padding:12px 14px; margin-bottom:20px;
+  display:flex; gap:10px; align-items:flex-start;
+  background:var(--gray-50);
+}
+.warn-icon { font-size:16px; flex-shrink:0; margin-top:1px; }
+.warn-text { font-size:12px; color:var(--gray-500); line-height:1.65; }
+.warn-text strong { color:var(--red); }
+
+.form-error { font-size:12px; color:var(--red); margin-top:6px; display:none; }
+
+/* 시작 버튼 */
+.start-btn {
+  width:100%; max-width:480px;
+  background:var(--primary); color:#fff;
+  font-size:16px; font-weight:700; padding:15px;
+  border:none; border-radius:10px; cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif; transition:background .15s;
+  margin-bottom:28px;
+}
+.start-btn:hover { background:var(--accent); }
+
+/* QR */
+.qr-wrap {
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  padding:16px; border:1px solid var(--gray-200); border-radius:12px;
+  background:var(--gray-50);
+}
+.qr-label { font-size:11px; font-weight:700; color:var(--gray-400); letter-spacing:1px; }
+#qrcode canvas, #qrcode img { border-radius:6px; }
+.qr-hint { font-size:11px; color:var(--gray-400); text-align:center; line-height:1.5; }
+
+/* ══════════════════════════════
+   EXAM
+══════════════════════════════ */
+#exam { display:none; min-height:100vh; background:#fff; }
+
+.exam-header {
+  background:#fff; border-bottom:1px solid var(--gray-200);
+  padding:10px 16px;
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  position:sticky; top:0; z-index:100;
+}
+.exam-user-block { display:flex; flex-direction:column; gap:1px; min-width:0; }
+.exam-user-name  { font-size:13px; font-weight:700; color:var(--gray-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px; }
+.exam-user-meta  { font-size:11px; color:var(--gray-400); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px; }
+
+.exam-progress { flex:1; margin:0 12px; }
+.prog-bar-bg   { background:var(--gray-100); border-radius:4px; height:4px; overflow:hidden; }
+.prog-bar-fill { background:var(--primary); height:100%; border-radius:4px; transition:width .4s ease; }
+.prog-text     { font-size:10px; color:var(--gray-400); text-align:right; margin-top:2px; font-family:'JetBrains Mono',monospace; }
+
+.exam-right  { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+.q-badge     { background:var(--primary); color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; font-family:'JetBrains Mono',monospace; }
+.cheat-badge { font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; border:1px solid; white-space:nowrap; }
+.cheat-badge.ok     { color:var(--green);  border-color:#bbf7d0; background:var(--green-bg); }
+.cheat-badge.warn   { color:var(--orange); border-color:#fed7aa; background:var(--orange-bg); }
+.cheat-badge.danger { color:var(--red);    border-color:#fecaca; background:var(--red-bg); }
+
+.exam-body { padding:16px; max-width:640px; margin:0 auto; }
+
+/* 도트 네비 */
+.dot-nav { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:16px; }
+.dot {
+  width:28px; height:28px; border-radius:50%;
+  border:1.5px solid var(--gray-200); background:#fff;
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:600; cursor:pointer;
+  transition:all .12s; color:var(--gray-400);
+}
+.dot.answered { background:var(--primary); border-color:var(--primary); color:#fff; }
+.dot.current  { border-color:var(--accent); color:var(--accent); box-shadow:0 0 0 2px var(--primary-light); }
+.dot.answered.current { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+/* 문제 카드 */
+.question-card {
+  background:#fff; border:1.5px solid var(--gray-200); border-radius:12px;
+  padding:20px 18px; margin-bottom:14px;
+}
+.q-num-tag {
+  display:inline-block; background:var(--primary-light);
+  color:var(--primary); font-size:11px; font-weight:700;
+  padding:3px 10px; border-radius:6px; margin-bottom:12px; letter-spacing:.5px;
+}
+.q-text { font-size:15px; font-weight:500; line-height:1.75; color:var(--gray-900); margin-bottom:18px; }
+
+.options { display:flex; flex-direction:column; gap:8px; }
+.opt-btn {
+  display:flex; align-items:center; gap:10px; padding:12px 14px;
+  border:1.5px solid var(--gray-200); border-radius:10px; background:#fff;
+  cursor:pointer; transition:all .14s; text-align:left;
+  font-size:14px; color:var(--gray-700); font-family:'Noto Sans KR',sans-serif; line-height:1.5;
+}
+.opt-btn:hover:not(:disabled) { border-color:var(--accent); background:var(--primary-light); }
+.opt-num {
+  width:26px; height:26px; border-radius:50%; border:1.5px solid var(--gray-200);
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:700; flex-shrink:0; transition:all .14s; color:var(--gray-500);
+}
+.opt-btn.selected            { border-color:var(--primary); background:var(--primary-light); }
+.opt-btn.selected .opt-num   { border-color:var(--primary); background:var(--primary); color:#fff; }
+.opt-btn:disabled { cursor:default; }
+
+/* 네비 버튼 */
+.nav-row { display:flex; gap:10px; }
+.nav-btn {
+  flex:1; padding:13px; border:1.5px solid var(--gray-200); border-radius:10px;
+  font-size:14px; font-weight:700; cursor:pointer;
+  transition:all .14s; font-family:'Noto Sans KR',sans-serif; background:#fff; color:var(--gray-700);
+}
+.nav-btn.next   { background:var(--primary); border-color:var(--primary); color:#fff; }
+.nav-btn.submit { background:var(--green); border-color:var(--green); color:#fff; }
+.nav-btn:hover  { opacity:.88; }
+
+/* ══════════════════════════════
+   RESULT
+══════════════════════════════ */
+#result { display:none; min-height:100vh; background:var(--gray-50); padding:24px 16px 48px; }
+.result-inner { max-width:600px; margin:0 auto; }
+
+/* 응시자 카드 */
+.applicant-card {
+  background:#fff; border:1px solid var(--gray-200); border-radius:12px;
+  padding:16px 18px; margin-bottom:16px;
+  display:flex; align-items:center; gap:14px;
+}
+.av-circle {
+  width:44px; height:44px; border-radius:50%;
+  background:var(--primary); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px; font-weight:700; flex-shrink:0;
+}
+.av-info { flex:1; }
+.av-name { font-size:17px; font-weight:700; color:var(--gray-900); }
+.av-meta { font-size:12px; color:var(--gray-400); margin-top:2px; }
+.av-tags { display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
+.av-tag  {
+  font-size:11px; font-weight:600; padding:2px 8px; border-radius:6px;
+  border:1px solid var(--gray-200); background:var(--gray-50); color:var(--gray-600);
+}
+
+/* 부정행위 카드 */
+.cheat-card {
+  border-radius:12px; padding:14px 16px; margin-bottom:16px;
+  border:1px solid;
+}
+.cheat-card.clean  { background:var(--green-bg);  border-color:#bbf7d0; }
+.cheat-card.warn   { background:var(--orange-bg); border-color:#fed7aa; }
+.cheat-card.danger { background:var(--red-bg);    border-color:#fecaca; }
+.cheat-card-title { font-size:13px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+.cheat-card.clean  .cheat-card-title { color:var(--green); }
+.cheat-card.warn   .cheat-card-title { color:var(--orange); }
+.cheat-card.danger .cheat-card-title { color:var(--red); }
+.cheat-card-body   { font-size:12px; color:var(--gray-600); line-height:1.7; }
+
+/* 점수 카드 */
+.score-card {
+  background:#fff; border:1px solid var(--gray-200); border-radius:12px;
+  padding:24px 18px; margin-bottom:16px; text-align:center;
+}
+.score-ring-wrap { position:relative; width:120px; height:120px; margin:0 auto 16px; }
+.score-ring-svg  { transform:rotate(-90deg); }
+.score-ring-bg   { fill:none; stroke:var(--gray-100); stroke-width:8; }
+.score-ring-fill { fill:none; stroke:var(--primary); stroke-width:8; stroke-linecap:round; transition:stroke-dashoffset 1s ease; }
+.score-ring-text {
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+}
+.score-big   { font-size:32px; font-weight:900; color:var(--gray-900); font-family:'JetBrains Mono',monospace; line-height:1; }
+.score-denom { font-size:12px; color:var(--gray-400); }
+.score-grade { font-size:18px; font-weight:700; color:var(--gray-900); margin-bottom:4px; }
+.score-msg   { font-size:13px; color:var(--gray-500); }
+
+.stats-row { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+.stat-card { background:#fff; border:1px solid var(--gray-200); border-radius:10px; padding:14px 10px; text-align:center; }
+.stat-num  { font-size:24px; font-weight:700; font-family:'JetBrains Mono',monospace; }
+.stat-lbl  { font-size:11px; color:var(--gray-400); margin-top:2px; }
+
+/* 시트 상태 */
+.sheet-card {
+  border-radius:10px; padding:13px 15px; margin-bottom:16px;
+  display:flex; align-items:center; gap:10px; font-size:13px;
+  border:1px solid;
+}
+.sheet-card.sending { background:var(--gray-50);   border-color:var(--gray-200); color:var(--gray-500); }
+.sheet-card.success { background:var(--green-bg);  border-color:#bbf7d0;         color:var(--green); }
+.sheet-card.error   { background:var(--red-bg);    border-color:#fecaca;         color:var(--red); }
+.sheet-icon { font-size:18px; flex-shrink:0; }
+
+/* 해설 */
+.explain-list { margin-bottom:16px; }
+.explain-item { background:#fff; border:1px solid var(--gray-200); border-radius:10px; margin-bottom:8px; overflow:hidden; }
+.explain-head {
+  padding:12px 14px; display:flex; align-items:center; gap:8px;
+  cursor:pointer; transition:background .12s;
+}
+.explain-head:hover { background:var(--gray-50); }
+.ex-q-badge { background:var(--primary-light); color:var(--primary); font-size:10px; font-weight:700; padding:2px 8px; border-radius:5px; white-space:nowrap; }
+.ex-q-text  { font-size:13px; color:var(--gray-700); flex:1; line-height:1.4; }
+.ex-result  { width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+.ex-result.ok { background:var(--green-bg);  color:var(--green); }
+.ex-result.ng { background:var(--red-bg);    color:var(--red); }
+
+.explain-body { display:none; border-top:1px solid var(--gray-100); padding:14px; }
+.explain-body.open { display:block; }
+
+.ans-row   { display:flex; align-items:flex-start; gap:7px; margin-bottom:8px; flex-wrap:wrap; }
+.ans-label { font-size:11px; font-weight:700; padding:2px 8px; border-radius:5px; white-space:nowrap; }
+.ans-label.my   { background:var(--red-bg);   color:var(--red); }
+.ans-label.skip { background:var(--gray-100); color:var(--gray-400); }
+.ans-label.ans  { background:var(--primary-light); color:var(--primary); }
+.ans-val   { font-size:13px; color:var(--gray-700); line-height:1.5; }
+
+.law-block {
+  background:var(--gray-50); border-left:3px solid var(--primary);
+  border-radius:0 8px 8px 0; padding:12px 14px; margin-top:10px;
+}
+.law-head { font-size:11px; font-weight:700; color:var(--primary); letter-spacing:.5px; margin-bottom:6px; }
+.law-body { font-size:13px; color:var(--gray-600); line-height:1.8; }
+.law-body strong { color:var(--gray-900); }
+.law-body .sub   { color:var(--gray-400); }
+
+/* 가이드 */
+.guide-card { background:#fff; border:1px solid var(--gray-200); border-radius:10px; padding:18px; margin-top:16px; }
+.guide-title { font-size:13px; font-weight:700; color:var(--gray-900); margin-bottom:14px; display:flex; align-items:center; gap:7px; }
+.g-step { display:flex; gap:10px; margin-bottom:12px; }
+.g-num  { width:20px; height:20px; border-radius:50%; background:var(--primary); color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px; }
+.g-txt  { font-size:13px; color:var(--gray-600); line-height:1.65; }
+.g-txt strong { color:var(--gray-900); }
+.copy-btn { display:inline-flex; align-items:center; gap:5px; background:var(--gray-50); border:1px solid var(--gray-200); color:var(--gray-700); font-size:12px; padding:5px 12px; border-radius:7px; cursor:pointer; margin-top:8px; font-family:'Noto Sans KR',sans-serif; transition:all .14s; }
+.copy-btn:hover { background:var(--primary-light); border-color:var(--accent); color:var(--primary); }
+.copy-btn.copied { background:var(--green-bg); border-color:#bbf7d0; color:var(--green); }
+
+.retry-btn {
+  display:block; width:100%; padding:14px; background:var(--primary); color:#fff;
+  font-size:15px; font-weight:700; border:none; border-radius:10px;
+  cursor:pointer; margin-top:16px; font-family:'Noto Sans KR',sans-serif; transition:background .14s;
+}
+.retry-btn:hover { background:var(--accent); }
+
+@keyframes spin { to{transform:rotate(360deg);} }
+.spinner { display:inline-block; width:14px; height:14px; border:2px solid var(--gray-200); border-top-color:var(--primary); border-radius:50%; animation:spin .6s linear infinite; vertical-align:middle; }
+
+@media(max-width:400px) {
+  .select-grid.team-grid { grid-template-columns:repeat(2,1fr); }
+  .q-text { font-size:14px; }
+  .opt-btn { font-size:13px; padding:10px 11px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+     화면 이탈 감지 오버레이
+═══════════════════════════════════════ -->
+<div id="leaveOverlay">
+  <div class="lo-icon" id="leaveIcon">🚨</div>
+  <div class="lo-title" id="leaveTitle">화면 이탈이 감지되었습니다</div>
+  <div class="lo-msg">시험 중 다른 앱·탭으로 이동하면<br>부정행위로 기록되며 답안지와 함께 제출됩니다.</div>
+  <div class="lo-box">
+    <div class="lo-box-label">누적 이탈 횟수</div>
+    <div class="lo-box-num" id="leaveCountNum">0</div>
+    <div class="lo-box-warn" id="leaveWarnTxt">3회 초과 시 자동 제출됩니다</div>
+  </div>
+  <button class="lo-btn" onclick="resumeExam()">시험 계속하기</button>
+  <div class="lo-timer" id="leaveTimerTxt"></div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     LANDING
+═══════════════════════════════════════ -->
+<div id="landing">
+
+  <div class="land-header">
+    <div class="land-kgs">KGS CODE 2026</div>
+    <div class="land-title">도시가스 공급시설 CBT</div>
+    <div class="land-sub">도시가스사업법령 · KGS FS/FP 기준</div>
+  </div>
+
+  <div class="land-divider"></div>
+
+  <div class="info-chips">
+    <div class="chip"><span class="chip-dot"></span>10문항</div>
+    <div class="chip"><span class="chip-dot"></span>4지선다</div>
+    <div class="chip"><span class="chip-dot"></span>법규 해설 포함</div>
+    <div class="chip"><span class="chip-dot"></span>부정행위 감지</div>
+  </div>
+
+  <!-- 이름 -->
+  <div class="form-section">
+    <label class="form-label">성 명</label>
+    <input type="text" id="nameInput" class="text-field"
+      placeholder="홍길동" maxlength="20" autocomplete="off"
+      onkeydown="if(event.key==='Enter')this.blur()">
+  </div>
+
+  <!-- 직급 -->
+  <div class="form-section">
+    <label class="form-label">직 급</label>
+    <div class="select-grid rank-grid" id="rankGrid">
+      <button class="sel-btn" data-rank="사원" onclick="selectRank(this)">사원</button>
+      <button class="sel-btn" data-rank="계장" onclick="selectRank(this)">계장</button>
+      <button class="sel-btn" data-rank="대리" onclick="selectRank(this)">대리</button>
+      <button class="sel-btn" data-rank="과장" onclick="selectRank(this)">과장</button>
+      <button class="sel-btn" data-rank="차장" onclick="selectRank(this)">차장</button>
+      <button class="sel-btn" data-rank="부장" onclick="selectRank(this)">부장</button>
+    </div>
+  </div>
+
+  <!-- 팀 -->
+  <div class="form-section">
+    <label class="form-label">소 속 팀</label>
+    <div class="select-grid team-grid" id="teamGrid">
+      <button class="sel-btn" data-team="공급관리팀" onclick="selectTeam(this)">공급관리팀</button>
+      <button class="sel-btn" data-team="안전관리팀" onclick="selectTeam(this)">안전관리팀</button>
+      <button class="sel-btn" data-team="기술팀"     onclick="selectTeam(this)">기술팀</button>
+      <button class="sel-btn" data-team="영업팀"     onclick="selectTeam(this)">영업팀</button>
+      <button class="sel-btn" data-team="고객지원팀" onclick="selectTeam(this)">고객지원팀</button>
+      <button class="sel-btn" data-team="경영관리팀" onclick="selectTeam(this)">경영관리팀</button>
+      <button class="sel-btn" data-team="재무관리팀" onclick="selectTeam(this)">재무관리팀</button>
+    </div>
+    <div class="form-error" id="formError"></div>
+  </div>
+
+  <!-- 경고 -->
+  <div class="warn-box">
+    <span class="warn-icon">🔒</span>
+    <div class="warn-text">
+      시험 중 <strong>다른 앱 전환·탭 이동·홈 화면 이동</strong>이 자동으로 감지됩니다.<br>
+      이탈 횟수와 시각은 답안지에 기록되어 관리자에게 제출됩니다.<strong> 3회 초과 시 자동 제출</strong>됩니다.
+    </div>
+  </div>
+
+  <button class="start-btn" onclick="startExam()">시험 시작</button>
+
+  <div class="qr-wrap">
+    <div class="qr-label">📱 QR로 모바일 응시</div>
+    <div id="qrcode"></div>
+    <div class="qr-hint">카메라로 스캔하면<br>휴대폰에서 바로 풀 수 있습니다</div>
+  </div>
+
+</div><!-- /landing -->
+
+<!-- ═══════════════════════════════════════
+     EXAM
+═══════════════════════════════════════ -->
+<div id="exam">
+  <div class="exam-header">
+    <div class="exam-user-block">
+      <div class="exam-user-name" id="hdrName"></div>
+      <div class="exam-user-meta" id="hdrMeta"></div>
+    </div>
+    <div class="exam-progress">
+      <div class="prog-bar-bg"><div class="prog-bar-fill" id="progFill" style="width:10%"></div></div>
+      <div class="prog-text" id="progText">1 / 10</div>
+    </div>
+    <div class="exam-right">
+      <div class="q-badge" id="qBadge">Q1</div>
+      <div class="cheat-badge ok" id="cheatBadge">✓ 0회</div>
+    </div>
+  </div>
+
+  <div class="exam-body">
+    <div class="dot-nav" id="dotNav"></div>
+
+    <div class="question-card">
+      <span class="q-num-tag" id="qTag">문제 1</span>
+      <p class="q-text" id="qText"></p>
+      <div class="options" id="opts"></div>
+    </div>
+
+    <div class="nav-row">
+      <button class="nav-btn prev" id="prevBtn" onclick="prevQ()">← 이전</button>
+      <button class="nav-btn next" id="nextBtn" onclick="nextQ()">다음 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     RESULT
+═══════════════════════════════════════ -->
+<div id="result">
+  <div class="result-inner">
+
+    <!-- 응시자 -->
+    <div class="applicant-card">
+      <div class="av-circle" id="avCircle">?</div>
+      <div class="av-info">
+        <div class="av-name" id="avName"></div>
+        <div class="av-meta" id="avMeta"></div>
+        <div class="av-tags" id="avTags"></div>
+      </div>
+    </div>
+
+    <!-- 부정행위 -->
+    <div class="cheat-card" id="cheatCard">
+      <div class="cheat-card-title" id="cheatCardTitle"></div>
+      <div class="cheat-card-body" id="cheatCardBody"></div>
+    </div>
+
+    <!-- 점수 -->
+    <div class="score-card">
+      <div class="score-ring-wrap">
+        <svg class="score-ring-svg" width="120" height="120" viewBox="0 0 120 120">
+          <circle class="score-ring-bg"   cx="60" cy="60" r="52"/>
+          <circle class="score-ring-fill" id="scoreRing" cx="60" cy="60" r="52"
+            stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
+        </svg>
+        <div class="score-ring-text">
+          <div class="score-big"   id="scoreBig">0</div>
+          <div class="score-denom">/ 10점</div>
+        </div>
+      </div>
+      <div class="score-grade" id="scoreGrade"></div>
+      <div class="score-msg"   id="scoreMsg"></div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-num" id="stCorrect" style="color:var(--green)">0</div><div class="stat-lbl">정답</div></div>
+      <div class="stat-card"><div class="stat-num" id="stWrong"   style="color:var(--red)">0</div><div class="stat-lbl">오답</div></div>
+      <div class="stat-card"><div class="stat-num" id="stRate"    style="color:var(--primary)">0%</div><div class="stat-lbl">정답률</div></div>
+    </div>
+
+    <!-- 시트 상태 -->
+    <div class="sheet-card sending" id="sheetCard">
+      <span class="sheet-icon"><span class="spinner"></span></span>
+      <span id="sheetMsg">구글 시트에 결과를 저장하는 중...</span>
+    </div>
+
+    <!-- 해설 -->
+    <div class="explain-list" id="explainList"></div>
+
+    <!-- 가이드 -->
+    <div class="guide-card" id="guideCard" style="display:none">
+      <div class="guide-title">⚙️ 구글 시트 연동 설정</div>
+      <div class="g-step"><div class="g-num">1</div><div class="g-txt"><strong>스프레드시트 열기</strong><br><a href="https://docs.google.com/spreadsheets/d/1nFx9ajgoRT5VA8XIkihIAgc55r1E1miCSPOWfzJiCRk/edit" target="_blank" style="color:var(--primary);font-size:12px;">📊 시트 열기 →</a></div></div>
+      <div class="g-step"><div class="g-num">2</div><div class="g-txt"><strong>확장 프로그램 → Apps Script</strong> 클릭 후 아래 코드 붙여넣기<br><button class="copy-btn" id="copyBtn" onclick="copyScript()">📋 Apps Script 코드 복사</button></div></div>
+      <div class="g-step"><div class="g-num">3</div><div class="g-txt"><strong>배포 → 새 배포 → 웹 앱</strong><br>실행: 나 (izzim7@gmail.com) / 액세스: 모든 사용자 → URL 복사</div></div>
+      <div class="g-step"><div class="g-num">4</div><div class="g-txt">HTML 파일의 <code style="font-size:11px;color:var(--primary);font-family:monospace">SHEET_URL</code> 에 복사한 URL 붙여넣기</div></div>
+    </div>
+
+    <button class="retry-btn" onclick="retryExam()">↺ 다시 풀기</button>
+  </div>
+</div><!-- /result -->
+
+<script>
+/* ────────────────────────────────────────
+   설정
+──────────────────────────────────────── */
+const SHEET_URL = "YOUR_APPS_SCRIPT_WEB_APP_URL";
+const SHEET_ID  = "1nFx9ajgoRT5VA8XIkihIAgc55r1E1miCSPOWfzJiCRk";
+const MAX_LEAVE = 3;
+
+/* ────────────────────────────────────────
+   상태
+──────────────────────────────────────── */
+let currentQ     = 0;
+let answers      = new Array(10).fill(null);
+let userName     = "";
+let selectedRank = "";
+let selectedTeam = "";
+let leaveCount   = 0;
+let leaveLog     = [];
+let examActive   = false;
+
+/* ────────────────────────────────────────
+   유틸
+──────────────────────────────────────── */
+function getKST() {
+  return new Date().toLocaleString("ko-KR", {
+    timeZone:"Asia/Seoul",
+    year:"numeric", month:"2-digit", day:"2-digit",
+    hour:"2-digit", minute:"2-digit", second:"2-digit"
+  });
+}
+
+/* ────────────────────────────────────────
+   직급 / 팀 선택
+──────────────────────────────────────── */
+function selectRank(btn) {
+  document.querySelectorAll("#rankGrid .sel-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  selectedRank = btn.dataset.rank;
+}
+function selectTeam(btn) {
+  document.querySelectorAll("#teamGrid .sel-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  selectedTeam = btn.dataset.team;
+}
+
+/* ────────────────────────────────────────
+   부정행위 감지
+──────────────────────────────────────── */
+function onLeave() {
+  if (!examActive) return;
+  leaveCount++;
+  leaveLog.push({ seq:leaveCount, time:getKST() });
+  updateCheatBadge();
+
+  document.getElementById("leaveCountNum").textContent = leaveCount;
+  document.getElementById("leaveIcon").textContent     = leaveCount > MAX_LEAVE ? "🚫" : "🚨";
+  document.getElementById("leaveTitle").textContent    = leaveCount > MAX_LEAVE
+    ? "최대 이탈 횟수를 초과했습니다" : "화면 이탈이 감지되었습니다";
+  document.getElementById("leaveWarnTxt").textContent  = `${MAX_LEAVE}회 초과 시 자동 제출됩니다`;
+  document.getElementById("leaveOverlay").classList.add("show");
+
+  if (leaveCount > MAX_LEAVE) {
+    let cnt = 5;
+    document.getElementById("leaveTimerTxt").textContent = `${cnt}초 후 자동 제출...`;
+    const t = setInterval(() => {
+      cnt--;
+      document.getElementById("leaveTimerTxt").textContent = `${cnt}초 후 자동 제출...`;
+      if (cnt <= 0) { clearInterval(t); autoSubmit(); }
+    }, 1000);
+  } else {
+    document.getElementById("leaveTimerTxt").textContent = "";
+  }
+}
+
+function autoSubmit() {
+  document.getElementById("leaveOverlay").classList.remove("show");
+  showResult(true);
+}
+
+function resumeExam() {
+  document.getElementById("leaveOverlay").classList.remove("show");
+}
+
+function updateCheatBadge() {
+  const b = document.getElementById("cheatBadge");
+  if (!b) return;
+  b.textContent = `${leaveCount === 0 ? "✓" : "!"} ${leaveCount}회`;
+  b.className   = "cheat-badge " + (leaveCount === 0 ? "ok" : leaveCount < MAX_LEAVE ? "warn" : "danger");
+}
+
+document.addEventListener("visibilitychange", () => { if (document.hidden) onLeave(); });
+window.addEventListener("blur",     () => { if (!document.hidden) onLeave(); });
+window.addEventListener("pagehide", onLeave);
+
+/* ────────────────────────────────────────
+   문제 데이터
+──────────────────────────────────────── */
+const questions = [
+  {
+    q: "도시가스사업법 시행규칙에 따른 '고압'의 정의로 옳은 것은?",
+    opts: ["0.1MPa 이상 1MPa 미만의 압력","0.1MPa 미만의 압력","1MPa 이상의 압력(게이지압력)","0.01MPa 이상 0.2MPa 미만의 압력"],
+    ans: 2,
+    law: "도시가스사업법 시행규칙 제2조 제6호\n'고압'이란 1메가파스칼 이상의 압력(게이지압력)을 말한다. 다만, 액체상태의 액화가스는 고압으로 본다.\n\n▸ 중압: 0.1MPa 이상 ~ 1MPa 미만\n▸ 저압: 0.1MPa 미만"
+  },
+  {
+    q: "일반도시가스사업의 정압기 가스방출관 방출구는 지면으로부터 몇 m 이상의 높이에 설치하여야 하는가?",
+    opts: ["2m 이상","3m 이상","5m 이상","7m 이상"],
+    ans: 2,
+    law: "도시가스사업법 시행규칙 별표 6 / KGS FS552\n정압기에는 안전밸브 및 가스방출관을 설치하고, 가스방출관의 방출구는 지면으로부터 5m 이상의 높이에 설치할 것.\n\n▸ 전기시설물 접촉 우려가 있는 장소: 3m 이상"
+  },
+  {
+    q: "일반도시가스사업 안전관리 책임자의 자격 기준으로 옳은 것은?",
+    opts: ["가스기능사 이상의 자격","가스산업기사 이상의 자격","안전관리자 양성교육 이수자","안전점검원 양성교육 이수자"],
+    ans: 1,
+    law: "도시가스사업법 시행령 별표 1 (안전관리자의 자격과 선임 인원)\n일반도시가스사업의 안전관리 책임자: 사업장마다 1명 이상, 가스산업기사 이상의 자격을 가진 사람.\n\n▸ 안전관리원: 가스기능사 이상 또는 안전관리자 양성교육 이수자\n▸ 안전점검원: 가스기능사 이상 또는 양성교육 이수자"
+  },
+  {
+    q: "도시가스 공급시설의 정압기실에 갖추어야 하는 설비로 틀린 것은?",
+    opts: ["누출된 도시가스를 검지하여 안전관리자에게 통보할 수 있는 설비","정압기 출구 배관에 압력 비정상 상승 경보장치","정압기 입구에 수분 및 불순물 제거장치","정압기실 내부에 CCTV 감시 설비"],
+    ans: 3,
+    law: "도시가스사업법 시행규칙 별표 6 (정압기 사고예방설비기준)\n① 가스누출 검지·통보 설비\n② 정압기 출구 압력 비정상 상승 경보장치\n③ 정압기 입구 수분·불순물 제거장치\n④ 동결방지 조치 / ⑤ 전기설비 방폭조치\n\n▸ CCTV 감시설비는 법령상 의무 설치 사항이 아님"
+  },
+  {
+    q: "일반도시가스사업의 본관에 대한 정의로 옳은 것은?",
+    opts: ["도시가스제조사업소의 부지 경계에서 가스사용자 토지 경계까지 이르는 배관","도시가스제조사업소의 부지 경계 또는 가스도매사업자의 가스시설 경계에서 정압기까지 이르는 배관","정압기에서 가스사용자 건축물의 계량기 전단밸브까지 이르는 배관","가스사용자 토지 경계에서 연소기까지 이르는 배관"],
+    ans: 1,
+    law: "도시가스사업법 시행규칙 제2조 제2호 나목\n일반도시가스사업의 본관: 도시가스제조사업소의 부지 경계 또는 가스도매사업자의 가스시설 경계에서 정압기까지 이르는 배관.\n\n▸ 공급관: 정압기 → 사용자 토지경계 또는 계량기 전단밸브\n▸ 내관: 토지경계(또는 계량기 전단밸브) → 연소기"
+  },
+  {
+    q: "지하에 매설하는 도시가스 배관의 도색 기준에서 중압 이상 배관의 색상은?",
+    opts: ["황색","적색","청색","녹색"],
+    ans: 1,
+    law: "KGS FU551 (도시가스 사용시설의 시설·기술·검사 기준) 2.5.7.2\n지하매설배관의 표면 색상:\n▸ 최고사용압력이 저압인 배관: 황색\n▸ 중압 이상인 배관: 적색\n\n지상배관: 부식방지도장 후 황색 또는 황색 띠(폭 30mm, 2중) 표시"
+  },
+  {
+    q: "일반도시가스사업의 안전관리원 선임 인원 기준으로 배관 길이가 200km 이하인 경우 최소 선임 인원은?",
+    opts: ["2명 이상","3명 이상","5명 이상","10명 이상"],
+    ans: 2,
+    law: "도시가스사업법 시행령 별표 1 (안전관리자 선임 인원)\n일반도시가스사업 안전관리원:\n▸ 배관 길이 200km 이하: 5명 이상\n▸ 200km 초과 ~ 1,000km 이하: 5명 + 200km마다 1명 추가\n▸ 1,000km 초과: 10명 이상\n※ 가스도매사업자로부터 공급받는 경우 선임인원에서 2명 제외 가능"
+  },
+  {
+    q: "도시가스 공급시설 정압기의 예비정압기 관련 기준으로 옳은 것은?",
+    opts: ["예비정압기는 수동으로 전환하는 구조이어야 한다","예비정압기는 설치하지 않아도 된다","예비정압기를 설치하고 이상 압력 발생 시 자동으로 기능이 전환되는 구조이어야 한다","예비정압기는 주정압기와 반드시 동일 제조사 제품이어야 한다"],
+    ans: 2,
+    law: "도시가스사업법 시행규칙 별표 6 (정압기(실) 기준)\n정압기의 분해점검과 고장에 대비하여 예비정압기를 설치하고, 이상 압력이 발생할 때에는 자동으로 기능이 전환되는 구조일 것.\n\n▸ 자동 전환: 안정적 가스 공급 및 비상 대응을 위한 핵심 요건"
+  },
+  {
+    q: "도시가스 지하 매설배관에서 중압 이하 배관과 고압배관을 함께 매설하는 경우 원칙적으로 서로 간의 거리는?",
+    opts: ["0.3m 이상","1m 이상","2m 이상","3m 이상"],
+    ans: 2,
+    law: "도시가스사업법 시행규칙 별표 6 (배관설비기준)\n중압 이하의 배관과 고압배관을 매설하는 경우 서로간의 거리: 2m 이상\n\n▸ 철근콘크리트 방호구조물 안에 설치: 1m 이상\n▸ 관리주체가 동일한 경우: 0.3m 이상"
+  },
+  {
+    q: "정압기를 건축물 내부에 설치할 수 있는 경우로 옳은 것은?",
+    opts: ["모든 정압기는 건축물 내부에 설치할 수 있다","단독사용자에게 도시가스를 공급하기 위한 정압기로서 건축물 외부에 설치할 수 없어 외부와 환기가 잘 되는 지상층에 설치하는 경우","정압기실 외벽에서 30m 이내에 가스차단장치가 있는 경우","안전관리자가 상주하는 경우 별도 조건 없이 건축물 내부에 설치 가능"],
+    ans: 1,
+    law: "도시가스사업법 시행규칙 별표 6 (정압기 배치기준)\n정압기는 원칙적으로 건축물 내부 또는 기초 밑에 설치 불가. 단, 예외:\n\n▸ 단독사용자 공급용으로 외부 설치 불가 시: 환기가 잘 되는 지상층 또는 기계환기 설비 갖춘 지하층\n▸ 건축물 내 사업자 정압기: 가스누출경보기 연동 기계환기 + 1일 1회 이상 안전점검"
+  }
+];
+
+/* ────────────────────────────────────────
+   도트 네비
+──────────────────────────────────────── */
+function initDots() {
+  const nav = document.getElementById("dotNav");
+  nav.innerHTML = "";
+  for (let i = 0; i < 10; i++) {
+    const d = document.createElement("div");
+    let cls = "dot";
+    if (i === currentQ)      cls += " current";
+    if (answers[i] !== null) cls += " answered";
+    d.className   = cls;
+    d.textContent = i + 1;
+    d.onclick = () => goToQ(i);
+    nav.appendChild(d);
+  }
+}
+
+/* ────────────────────────────────────────
+   문제 렌더
+──────────────────────────────────────── */
+function renderQ() {
+  const q = questions[currentQ];
+  document.getElementById("qTag").textContent    = `문제 ${currentQ + 1}`;
+  document.getElementById("qText").textContent   = q.q;
+  document.getElementById("qBadge").textContent  = `Q${currentQ + 1}`;
+  document.getElementById("progFill").style.width = `${(currentQ + 1) * 10}%`;
+  document.getElementById("progText").textContent = `${currentQ + 1} / 10`;
+
+  const c = document.getElementById("opts");
+  c.innerHTML = "";
+  q.opts.forEach((opt, i) => {
+    const btn = document.createElement("button");
+    btn.className = "opt-btn" + (answers[currentQ] === i ? " selected" : "");
+    btn.innerHTML = `<div class="opt-num">${["①","②","③","④"][i]}</div><span>${opt}</span>`;
+    btn.onclick = () => selectAnswer(i);
+    c.appendChild(btn);
+  });
+
+  document.getElementById("prevBtn").style.display = currentQ === 0 ? "none" : "flex";
+  const nb = document.getElementById("nextBtn");
+  if (currentQ === 9) {
+    nb.textContent = "제출하기 ✓"; nb.className = "nav-btn submit"; nb.onclick = submitExam;
+  } else {
+    nb.textContent = "다음 →"; nb.className = "nav-btn next"; nb.onclick = nextQ;
+  }
+  initDots();
+}
+
+function selectAnswer(idx) {
+  answers[currentQ] = idx;
+  document.querySelectorAll(".opt-btn").forEach((b,i) => b.classList.toggle("selected", i === idx));
+  document.querySelectorAll(".opt-btn .opt-num").forEach((n,i) => {
+    n.style.background  = i === idx ? "var(--primary)" : "";
+    n.style.borderColor = i === idx ? "var(--primary)" : "";
+    n.style.color       = i === idx ? "#fff" : "";
+  });
+  initDots();
+}
+
+function goToQ(i) { currentQ = i; renderQ(); }
+function prevQ()  { if (currentQ > 0) { currentQ--; renderQ(); } }
+function nextQ()  { if (currentQ < 9) { currentQ++; renderQ(); } }
+
+/* ────────────────────────────────────────
+   시작
+──────────────────────────────────────── */
+function startExam() {
+  const name = document.getElementById("nameInput").value.trim();
+  const err  = document.getElementById("formError");
+  if (!name)         { err.textContent = "성명을 입력해 주세요."; err.style.display="block"; return; }
+  if (!selectedRank) { err.textContent = "직급을 선택해 주세요."; err.style.display="block"; return; }
+  if (!selectedTeam) { err.textContent = "소속 팀을 선택해 주세요."; err.style.display="block"; return; }
+  err.style.display = "none";
+
+  userName = name;
+  currentQ = 0; answers = new Array(10).fill(null);
+  leaveCount = 0; leaveLog = []; examActive = true;
+
+  document.getElementById("landing").style.display = "none";
+  document.getElementById("exam").style.display    = "block";
+  document.getElementById("hdrName").textContent   = userName;
+  document.getElementById("hdrMeta").textContent   = `${selectedRank} · ${selectedTeam}`;
+  updateCheatBadge();
+  renderQ();
+}
+
+/* ────────────────────────────────────────
+   제출
+──────────────────────────────────────── */
+function submitExam() {
+  const u = answers.filter(a => a === null).length;
+  if (u > 0 && !confirm(`${u}문제를 풀지 않았습니다. 그래도 제출하시겠습니까?`)) return;
+  showResult(false);
+}
+
+/* ────────────────────────────────────────
+   결과
+──────────────────────────────────────── */
+function showResult(isAuto) {
+  examActive = false;
+  document.getElementById("leaveOverlay").classList.remove("show");
+  document.getElementById("exam").style.display   = "none";
+  document.getElementById("result").style.display = "block";
+
+  let correct = 0;
+  answers.forEach((a,i) => { if (a === questions[i].ans) correct++; });
+  const wrong = answers.filter((a,i) => a !== null && a !== questions[i].ans).length;
+  const rate  = Math.round(correct / 10 * 100);
+
+  /* 응시자 카드 */
+  document.getElementById("avCircle").textContent = userName.charAt(0);
+  document.getElementById("avName").textContent   = userName;
+  document.getElementById("avMeta").textContent   = getKST() + " 제출";
+  const tags = document.getElementById("avTags");
+  tags.innerHTML = `<span class="av-tag">${selectedRank}</span><span class="av-tag">${selectedTeam}</span>${isAuto ? '<span class="av-tag" style="color:var(--red);border-color:#fecaca">자동제출</span>' : ""}`;
+
+  /* 부정행위 카드 */
+  const cc = document.getElementById("cheatCard");
+  const ct = document.getElementById("cheatCardTitle");
+  const cb = document.getElementById("cheatCardBody");
+  if (leaveCount === 0) {
+    cc.className = "cheat-card clean";
+    ct.textContent = "✅ 화면 이탈 없음 — 정상 응시";
+    cb.textContent = "시험 중 화면 이탈이 감지되지 않았습니다.";
+  } else {
+    cc.className = "cheat-card " + (leaveCount > MAX_LEAVE ? "danger" : "warn");
+    ct.textContent = `${leaveCount > MAX_LEAVE ? "🚫" : "⚠️"} 화면 이탈 ${leaveCount}회 감지`;
+    cb.innerHTML  = leaveLog.map(l => `· ${l.seq}회차 — ${l.time}`).join("<br>") +
+      (isAuto ? "<br><b style='color:var(--red)'>※ 초과 이탈로 자동 제출 처리됨</b>" : "");
+  }
+
+  /* 점수 링 */
+  document.getElementById("scoreBig").textContent  = correct;
+  document.getElementById("stCorrect").textContent = correct;
+  document.getElementById("stWrong").textContent   = wrong;
+  document.getElementById("stRate").textContent    = rate + "%";
+  const circ  = 2 * Math.PI * 52; // 326.7
+  const offset = circ * (1 - rate / 100);
+  document.getElementById("scoreRing").style.strokeDashoffset = offset;
+  document.getElementById("scoreRing").style.stroke =
+    rate >= 80 ? "var(--green)" : rate >= 60 ? "var(--primary)" : "var(--red)";
+
+  document.getElementById("scoreGrade").textContent = rate >= 80 ? "우수" : rate >= 60 ? "보통" : "미흡";
+  document.getElementById("scoreMsg").textContent   =
+    rate >= 80 ? "🎉 합격 수준입니다!" : rate >= 60 ? "👍 조금 더 노력하세요!" : "📚 추가 학습이 필요합니다.";
+
+  renderExplanations();
+  sendToSheet(correct, rate, isAuto);
+  window.scrollTo(0,0);
+}
+
+/* ────────────────────────────────────────
+   해설
+──────────────────────────────────────── */
+function renderExplanations() {
+  const el = document.getElementById("explainList");
+  el.innerHTML = `<div style="font-size:12px;color:var(--gray-400);text-align:center;margin-bottom:10px;">문제를 탭하면 해설이 펼쳐집니다</div>`;
+
+  questions.forEach((q, i) => {
+    const ok = answers[i] === q.ans;
+    const ua = answers[i];
+    const item = document.createElement("div");
+    item.className = "explain-item";
+
+    const head = document.createElement("div");
+    head.className = "explain-head";
+    head.innerHTML = `
+      <span class="ex-q-badge">Q${i+1}</span>
+      <span class="ex-q-text">${q.q}</span>
+      <span class="ex-result ${ok?"ok":"ng"}">${ok?"✓":"✗"}</span>`;
+
+    const body = document.createElement("div");
+    body.className = "explain-body";
+
+    let aHtml = "";
+    if (ua === null) {
+      aHtml += `<div class="ans-row"><span class="ans-label skip">미응답</span></div>`;
+    } else if (!ok) {
+      aHtml += `<div class="ans-row"><span class="ans-label my">내 답안</span><span class="ans-val">${["①","②","③","④"][ua]} ${q.opts[ua]}</span></div>`;
+    }
+    aHtml += `<div class="ans-row"><span class="ans-label ans">정 답</span><span class="ans-val">${["①","②","③","④"][q.ans]} ${q.opts[q.ans]}</span></div>`;
+
+    const lawLines = q.law.split("\n").map((l,idx) => {
+      if (idx === 0) return `<strong>${l}</strong>`;
+      if (l.startsWith("▸") || l.startsWith("※")) return `<span class="sub">${l}</span>`;
+      return l === "" ? "<br>" : l;
+    }).join("<br>");
+
+    body.innerHTML = `${aHtml}<div class="law-block"><div class="law-head">📖 관련 법규 및 해설</div><div class="law-body">${lawLines}</div></div>`;
+    head.onclick = () => body.classList.toggle("open");
+    item.appendChild(head); item.appendChild(body); el.appendChild(item);
+  });
+}
+
+/* ────────────────────────────────────────
+   구글 시트 전송
+──────────────────────────────────────── */
+function sendToSheet(correct, rate, isAuto) {
+  const sc = document.getElementById("sheetCard");
+  const sm = document.getElementById("sheetMsg");
+
+  const detail      = answers.map((a,i) => a === questions[i].ans ? "O" : (a === null ? "-" : "X")).join(",");
+  const leaveLogStr = leaveLog.length > 0 ? leaveLog.map(l => `${l.seq}회(${l.time})`).join(" / ") : "없음";
+
+  const payload = new URLSearchParams({
+    timestamp:getKST(), name:userName, rank:selectedRank, team:selectedTeam,
+    score:correct, total:10, rate, grade:rate>=80?"우수":rate>=60?"보통":"미흡",
+    subject:"도시가스 공급시설", detail, leaveCount, leaveLog:leaveLogStr,
+    autoSubmit: isAuto ? "자동제출" : "정상제출"
+  }).toString();
+
+  if (!SHEET_URL || SHEET_URL === "YOUR_APPS_SCRIPT_WEB_APP_URL") {
+    sc.className = "sheet-card error";
+    sc.querySelector(".sheet-icon").textContent = "⚙️";
+    sm.textContent = "Apps Script URL을 등록하면 자동 저장됩니다.";
+    document.getElementById("guideCard").style.display = "block";
+    return;
+  }
+
+  fetch(SHEET_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:payload })
+    .then(() => {
+      sc.className = "sheet-card success";
+      sc.querySelector(".sheet-icon").textContent = "✅";
+      sm.innerHTML = `<b>${userName}</b>(${selectedRank} · ${selectedTeam}) 결과가 저장되었습니다!
+        <a href="https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit" target="_blank"
+           style="color:var(--primary);margin-left:8px;font-size:12px;">시트 보기 →</a>`;
+    })
+    .catch(() => {
+      sc.className = "sheet-card error";
+      sc.querySelector(".sheet-icon").textContent = "❌";
+      sm.textContent = "전송 오류. 네트워크 상태를 확인해 주세요.";
+    });
+}
+
+/* ────────────────────────────────────────
+   Apps Script 코드
+──────────────────────────────────────── */
+const APPS_SCRIPT_CODE = `// ★ Google Apps Script — 도시가스 CBT 결과 수집
+function doPost(e) {
+  try {
+    var ss    = SpreadsheetApp.openById("1nFx9ajgoRT5VA8XIkihIAgc55r1E1miCSPOWfzJiCRk");
+    var sheet = ss.getSheetByName("CBT결과") || ss.insertSheet("CBT결과");
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow([
+        "제출시각","응시자","직급","소속팀","점수","총점","정답률","등급","과목",
+        "Q1","Q2","Q3","Q4","Q5","Q6","Q7","Q8","Q9","Q10",
+        "이탈횟수","이탈기록","제출방식"
+      ]);
+      var h = sheet.getRange(1,1,1,22);
+      h.setBackground("#1e40af").setFontColor("#ffffff").setFontWeight("bold");
+      sheet.setFrozenRows(1);
+    }
+    var p = e.parameter;
+    var d = (p.detail||"").split(",").map(function(s){return s.trim();});
+    sheet.appendRow([
+      p.timestamp, p.name, p.rank, p.team,
+      Number(p.score), Number(p.total), p.rate+"%", p.grade, p.subject,
+      d[0]||"-",d[1]||"-",d[2]||"-",d[3]||"-",d[4]||"-",
+      d[5]||"-",d[6]||"-",d[7]||"-",d[8]||"-",d[9]||"-",
+      Number(p.leaveCount), p.leaveLog, p.autoSubmit
+    ]);
+    var last=sheet.getLastRow(), sc=Number(p.score), lv=Number(p.leaveCount);
+    var bg = sc>=8?"#dcfce7":sc>=6?"#fef9c3":"#fee2e2";
+    if(lv>3) bg="#fecaca";
+    sheet.getRange(last,1,1,22).setBackground(bg);
+    return ContentService.createTextOutput(JSON.stringify({result:"ok"}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({result:"error",msg:err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+function doGet(e) {
+  return ContentService.createTextOutput(JSON.stringify({status:"ok"}))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+
+function copyScript() {
+  navigator.clipboard.writeText(APPS_SCRIPT_CODE).then(() => {
+    const b = document.getElementById("copyBtn");
+    b.textContent = "✅ 복사 완료!"; b.classList.add("copied");
+    setTimeout(() => { b.textContent="📋 Apps Script 코드 복사"; b.classList.remove("copied"); }, 2500);
+  }).catch(() => { prompt("전체 복사:", APPS_SCRIPT_CODE); });
+}
+
+/* ────────────────────────────────────────
+   다시 풀기
+──────────────────────────────────────── */
+function retryExam() {
+  examActive = false; leaveCount = 0; leaveLog = [];
+  document.getElementById("result").style.display  = "none";
+  document.getElementById("landing").style.display = "flex";
+  document.getElementById("nameInput").value = "";
+  document.querySelectorAll(".sel-btn").forEach(b => b.classList.remove("active"));
+  selectedRank = ""; selectedTeam = "";
+  document.getElementById("guideCard").style.display = "none";
+}
+
+/* ────────────────────────────────────────
+   QR 생성
+──────────────────────────────────────── */
+window.onload = function() {
+  new QRCode(document.getElementById("qrcode"), {
+    text:window.location.href, width:140, height:140,
+    colorDark:"#1e40af", colorLight:"#ffffff",
+    correctLevel:QRCode.CorrectLevel.H
+  });
+};
+</script>
+</body>
+</html>
