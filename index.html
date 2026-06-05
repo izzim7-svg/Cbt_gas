@@ -155,6 +155,11 @@ body { font-family:'Noto Sans KR', sans-serif; background:#fff; color:var(--gray
 .qr-label { font-size:11px; font-weight:700; color:var(--gray-400); letter-spacing:1px; }
 #qrcode canvas, #qrcode img { border-radius:6px; }
 .qr-hint { font-size:11px; color:var(--gray-400); text-align:center; line-height:1.5; }
+.qr-url-box { display:flex; align-items:center; gap:6px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:8px; padding:6px 10px; width:100%; max-width:220px; margin-top:6px; }
+.qr-url-text { font-size:10px; color:var(--gray-500); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:monospace; }
+.qr-copy-btn { background:var(--primary); color:#fff; border:none; border-radius:5px; font-size:10px; font-weight:700; padding:3px 8px; cursor:pointer; flex-shrink:0; font-family:'Noto Sans KR',sans-serif; white-space:nowrap; }
+.qr-copy-btn:hover { background:var(--accent); }
+.qr-copy-btn.copied { background:var(--green); }
 
 /* ══════════════════════════════
    EXAM
@@ -365,6 +370,144 @@ body { font-family:'Noto Sans KR', sans-serif; background:#fff; color:var(--gray
 .retry-btn:hover { background:var(--accent); }
 
 @keyframes spin { to{transform:rotate(360deg);} }
+/* ════════════════════════════════
+   ANALYTICS 화면
+════════════════════════════════ */
+#analytics { display:none; min-height:100vh; background:var(--gray-50); padding:20px 16px 48px; }
+.an-inner   { max-width:640px; margin:0 auto; }
+
+.an-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:20px;
+}
+.an-title { font-size:20px; font-weight:900; color:var(--gray-900); }
+.an-back  {
+  background:#fff; border:1.5px solid var(--gray-200); border-radius:8px;
+  padding:7px 14px; font-size:13px; font-weight:600; color:var(--gray-600);
+  cursor:pointer; font-family:'Noto Sans KR',sans-serif;
+}
+.an-back:hover { border-color:var(--primary); color:var(--primary); }
+
+/* 요약 카드 4개 */
+.an-summary { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:16px; }
+.an-sum-card {
+  background:#fff; border:1px solid var(--gray-200); border-radius:12px;
+  padding:14px 16px;
+}
+.an-sum-label { font-size:11px; color:var(--gray-400); margin-bottom:4px; font-weight:600; }
+.an-sum-value { font-size:26px; font-weight:900; font-family:'JetBrains Mono',monospace; }
+.an-sum-sub   { font-size:11px; color:var(--gray-400); margin-top:2px; }
+
+/* 섹션 카드 */
+.an-card {
+  background:#fff; border:1px solid var(--gray-200); border-radius:12px;
+  padding:18px 16px; margin-bottom:14px;
+}
+.an-card-title {
+  font-size:13px; font-weight:700; color:var(--gray-700);
+  margin-bottom:14px; display:flex; align-items:center; gap:7px;
+}
+
+/* 팀별 / 직급별 바 차트 */
+.bar-row {
+  display:flex; align-items:center; gap:10px; margin-bottom:9px;
+}
+.bar-label { font-size:12px; color:var(--gray-600); width:80px; flex-shrink:0; text-align:right; }
+.bar-wrap  { flex:1; background:var(--gray-100); border-radius:4px; height:20px; overflow:hidden; position:relative; }
+.bar-fill  { height:100%; border-radius:4px; transition:width 1s ease; display:flex; align-items:center; padding-left:6px; }
+.bar-fill span { font-size:10px; font-weight:700; color:#fff; white-space:nowrap; }
+.bar-count { font-size:12px; color:var(--gray-500); width:36px; text-align:right; flex-shrink:0; font-family:'JetBrains Mono',monospace; }
+
+/* 문제별 정답률 */
+.q-bar-row   { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.q-bar-num   { font-size:11px; font-weight:700; color:var(--primary); background:var(--primary-light); padding:2px 7px; border-radius:5px; flex-shrink:0; width:30px; text-align:center; }
+.q-bar-wrap  { flex:1; background:var(--gray-100); border-radius:4px; height:18px; overflow:hidden; }
+.q-bar-fill  { height:100%; border-radius:4px; transition:width 1s ease; }
+.q-bar-pct   { font-size:11px; color:var(--gray-500); width:36px; text-align:right; flex-shrink:0; font-family:'JetBrains Mono',monospace; }
+
+/* 응시자 목록 테이블 */
+.an-table-wrap { overflow-x:auto; }
+.an-table {
+  width:100%; border-collapse:collapse; font-size:12px;
+  min-width:480px;
+}
+.an-table th {
+  background:var(--gray-50); color:var(--gray-500); font-weight:700;
+  padding:8px 10px; text-align:left; border-bottom:1px solid var(--gray-200);
+  font-size:11px; white-space:nowrap;
+}
+.an-table td {
+  padding:9px 10px; border-bottom:1px solid var(--gray-100);
+  color:var(--gray-700); white-space:nowrap;
+}
+.an-table tr:hover td { background:var(--gray-50); }
+.score-pill {
+  display:inline-block; padding:2px 8px; border-radius:10px;
+  font-weight:700; font-size:11px; font-family:'JetBrains Mono',monospace;
+}
+.score-pill.hi  { background:var(--green-bg);  color:var(--green); }
+.score-pill.mid { background:#fef9c3; color:#854d0e; }
+.score-pill.lo  { background:var(--red-bg);    color:var(--red); }
+.cheat-pill {
+  display:inline-block; padding:2px 7px; border-radius:10px;
+  font-size:10px; font-weight:700;
+}
+.cheat-pill.clean  { background:var(--green-bg); color:var(--green); }
+.cheat-pill.warn   { background:var(--orange-bg); color:var(--orange); }
+.cheat-pill.danger { background:var(--red-bg); color:var(--red); }
+
+/* 로딩 / 에러 */
+.an-loading {
+  text-align:center; padding:40px 20px; color:var(--gray-400); font-size:14px;
+}
+.an-error {
+  background:var(--red-bg); border:1px solid #fecaca; border-radius:10px;
+  padding:14px 16px; color:var(--red); font-size:13px; margin-bottom:14px;
+}
+.an-refresh {
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  background:#fff; border:1.5px solid var(--gray-200); border-radius:8px;
+  padding:10px; font-size:13px; font-weight:600; color:var(--gray-600);
+  cursor:pointer; font-family:'Noto Sans KR',sans-serif; margin-top:14px; width:100%;
+}
+.an-refresh:hover { border-color:var(--primary); color:var(--primary); }
+/* 인라인 비밀번호 입력 */
+.analysis-pw-wrap {
+  display:none; margin-top:10px;
+  background:var(--gray-50); border:1.5px solid var(--gray-200);
+  border-radius:10px; padding:14px 16px;
+}
+.analysis-pw-wrap.show { display:block; }
+.pw-inline-label { font-size:12px; font-weight:700; color:var(--gray-500); margin-bottom:8px; letter-spacing:.3px; }
+.pw-inline-row   { display:flex; gap:8px; align-items:center; }
+.pw-inline-input {
+  flex:1; border:1.5px solid var(--gray-200); border-radius:8px;
+  padding:10px 12px; font-size:20px; letter-spacing:6px;
+  font-family:'JetBrains Mono',monospace; color:var(--gray-900);
+  background:#fff; outline:none; transition:border-color .15s;
+  -webkit-text-security:disc; text-security:disc;
+}
+.pw-inline-input:focus { border-color:var(--primary); }
+.pw-inline-input.error { border-color:var(--red); animation:shake .3s ease; }
+.pw-inline-confirm {
+  background:var(--primary); color:#fff; border:none; border-radius:8px;
+  padding:10px 16px; font-size:13px; font-weight:700; cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif; white-space:nowrap; transition:background .14s;
+}
+.pw-inline-confirm:hover { background:var(--accent); }
+.pw-inline-error { font-size:12px; color:var(--red); margin-top:6px; display:none; }
+
+
+/* 시험 종료 분석 버튼 */
+.analysis-btn {
+  display:block; width:100%; padding:14px; margin-top:10px;
+  background:#fff; border:1.5px solid var(--primary);
+  color:var(--primary); font-size:15px; font-weight:700;
+  border-radius:10px; cursor:pointer; font-family:'Noto Sans KR',sans-serif;
+  transition:all .15s;
+}
+.analysis-btn:hover { background:var(--primary-light); }
+
 .spinner { display:inline-block; width:14px; height:14px; border:2px solid var(--gray-200); border-top-color:var(--primary); border-radius:50%; animation:spin .6s linear infinite; vertical-align:middle; }
 
 @media(max-width:400px) {
@@ -459,10 +602,35 @@ body { font-family:'Noto Sans KR', sans-serif; background:#fff; color:var(--gray
 
   <button class="start-btn" onclick="startExam()">시험 시작</button>
 
+  <button class="analysis-btn" style="max-width:440px;width:100%;margin-bottom:0" onclick="toggleLandingPw()">📊 시험결과 분석</button>
+  <div class="analysis-pw-wrap" id="landingPwWrap" style="max-width:440px;width:100%;margin-bottom:0">
+    <div class="pw-inline-label">🔒 관리자 비밀번호 입력</div>
+    <div class="pw-inline-row">
+      <input
+        type="password"
+        id="pwLandingInput"
+        class="pw-inline-input"
+        placeholder="••••"
+        maxlength="4"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        autocomplete="off"
+        onkeydown="if(event.key==='Enter')checkLandingPw()"
+        oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+      >
+      <button class="pw-inline-confirm" onclick="checkLandingPw()">확인</button>
+    </div>
+    <div class="pw-inline-error" id="pwLandingError">비밀번호가 틀렸습니다. 다시 입력해 주세요.</div>
+  </div>
+
   <div class="qr-wrap">
     <div class="qr-label">📱 QR로 모바일 응시</div>
     <div id="qrcode"></div>
-    <div class="qr-hint">카메라로 스캔하면<br>휴대폰에서 바로 풀 수 있습니다</div>
+    <div class="qr-url-box" id="qrUrlBox">
+      <span id="qrUrlDisplay" class="qr-url-text">URL 로딩중...</span>
+      <button class="qr-copy-btn" onclick="copyExamUrl()">복사</button>
+    </div>
+    <div class="qr-hint">📌 QR이 안 열리면 URL을 복사해서 카카오톡·문자로 공유하세요</div>
   </div>
 
 </div><!-- /landing -->
@@ -565,15 +733,58 @@ body { font-family:'Noto Sans KR', sans-serif; background:#fff; color:var(--gray
       <div class="g-step"><div class="g-num">4</div><div class="g-txt">HTML 파일의 <code style="font-size:11px;color:var(--primary);font-family:monospace">SHEET_URL</code> 에 복사한 URL 붙여넣기</div></div>
     </div>
 
+    <button class="analysis-btn" onclick="togglePwInput()">📊 시험 종료 분석</button>
+    <div class="analysis-pw-wrap" id="analysisPwWrap">
+      <div class="pw-inline-label">🔒 관리자 비밀번호 입력</div>
+      <div class="pw-inline-row">
+        <input
+          type="password"
+          id="pwInlineInput"
+          class="pw-inline-input"
+          placeholder="••••"
+          maxlength="4"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          autocomplete="off"
+          onkeydown="if(event.key==='Enter')checkInlinePw()"
+          oninput="onPwInlineInput(this)"
+        >
+        <button class="pw-inline-confirm" onclick="checkInlinePw()">확인</button>
+      </div>
+      <div class="pw-inline-error" id="pwInlineError">비밀번호가 틀렸습니다. 다시 입력해 주세요.</div>
+    </div>
     <button class="retry-btn" onclick="retryExam()">↺ 다시 풀기</button>
   </div>
 </div><!-- /result -->
+
+<!-- ═══════════════════════════════════════
+     ANALYTICS
+═══════════════════════════════════════ -->
+<div id="analytics">
+  <div class="an-inner">
+
+    <div class="an-header">
+      <div class="an-title">📊 시험 분석</div>
+      <button class="an-back" onclick="closeAnalytics()">← 결과로 돌아가기</button>
+    </div>
+
+    <div id="anBody">
+      <div class="an-loading">
+        <div style="font-size:32px;margin-bottom:10px"><span class="spinner" style="width:28px;height:28px;border-width:3px"></span></div>
+        구글 시트에서 데이터를 불러오는 중...
+      </div>
+    </div>
+
+    <button class="an-refresh" onclick="loadAnalytics()">🔄 새로고침</button>
+  </div>
+</div>
+
 
 <script>
 /* ────────────────────────────────────────
    설정
 ──────────────────────────────────────── */
-const SHEET_URL = "YOUR_APPS_SCRIPT_WEB_APP_URL";
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbwlElOHHBAfsB6adfFUfwZIku_1ZF3KSpc5Q7w7GUghKWRPtfoKnJTQoFaTbG9ydsKwng/exec";
 const SHEET_ID  = "1nFx9ajgoRT5VA8XIkihIAgc55r1E1miCSPOWfzJiCRk";
 const MAX_LEAVE = 3;
 
@@ -833,6 +1044,7 @@ function showResult(isAuto) {
   document.getElementById("leaveOverlay").classList.remove("show");
   document.getElementById("exam").style.display   = "none";
   document.getElementById("result").style.display = "block";
+  document.getElementById("result").dataset.wasOpen = "true";
 
   let correct = 0;
   answers.forEach((a,i) => { if (a === questions[i].ans) correct++; });
@@ -1003,8 +1215,28 @@ function doPost(e) {
   }
 }
 function doGet(e) {
-  return ContentService.createTextOutput(JSON.stringify({status:"ok"}))
-    .setMimeType(ContentService.MimeType.JSON);
+  try {
+    var ss    = SpreadsheetApp.openById("1nFx9ajgoRT5VA8XIkihIAgc55r1E1miCSPOWfzJiCRk");
+    var sheet = ss.getSheetByName("CBT결과");
+    if (!sheet || sheet.getLastRow() <= 1) {
+      return ContentService.createTextOutput(JSON.stringify({rows:[]}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    var data = sheet.getDataRange().getValues();
+    var keys = data[0];
+    var rows = [];
+    for (var i = 1; i < data.length; i++) {
+      var obj = {};
+      keys.forEach(function(k, j){ obj[k] = data[i][j] !== undefined ? String(data[i][j]) : ""; });
+      rows.push(obj);
+    }
+    return ContentService
+      .createTextOutput(JSON.stringify({rows:rows}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({rows:[], error:err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }`;
 
 function copyScript() {
@@ -1020,6 +1252,7 @@ function copyScript() {
 ──────────────────────────────────────── */
 function retryExam() {
   examActive = false; leaveCount = 0; leaveLog = [];
+  document.getElementById("result").dataset.wasOpen = "false";
   document.getElementById("result").style.display  = "none";
   document.getElementById("landing").style.display = "flex";
   document.getElementById("nameInput").value = "";
@@ -1028,16 +1261,404 @@ function retryExam() {
   document.getElementById("guideCard").style.display = "none";
 }
 
-/* ────────────────────────────────────────
-   QR 생성
-──────────────────────────────────────── */
+/* ════════════════════════════════════════════════════
+   ★★★ QR 설정 ★★★
+   GitHub Pages 또는 Netlify 배포 후
+   아래 EXAM_URL 을 실제 배포 URL로 바꿔주세요!
+
+   GitHub Pages 예시:
+     "https://내아이디.github.io/cbt-gas/"
+   Netlify 예시:
+     "https://amazing-name-123.netlify.app/"
+
+   바꾸지 않으면 현재 열린 주소가 자동 사용됩니다.
+════════════════════════════════════════════════════ */
+const EXAM_URL = "https://izzim7-svg.github.io/Cbt_gas/"; // ← 여기를 실제 URL로 교체
+
+function copyExamUrl() {
+  navigator.clipboard.writeText(EXAM_URL).then(() => {
+    const btn = document.querySelector(".qr-copy-btn");
+    if (btn) { btn.textContent = "✓완료"; btn.classList.add("copied");
+      setTimeout(() => { btn.textContent="복사"; btn.classList.remove("copied"); }, 2000); }
+  }).catch(() => { prompt("URL을 복사하세요:", EXAM_URL); });
+}
+
 window.onload = function() {
+  // QR 생성
   new QRCode(document.getElementById("qrcode"), {
-    text:window.location.href, width:140, height:140,
+    text: EXAM_URL, width:140, height:140,
     colorDark:"#1e40af", colorLight:"#ffffff",
-    correctLevel:QRCode.CorrectLevel.H
+    correctLevel: QRCode.CorrectLevel.H
   });
+
+  // URL 미리보기 표시
+  const urlEl = document.getElementById("qrUrlDisplay");
+  if (urlEl) {
+    urlEl.textContent = EXAM_URL.length > 38 ? EXAM_URL.slice(0,36)+"…" : EXAM_URL;
+    urlEl.title = EXAM_URL; // 전체 URL 툴팁
+  }
 };
+
+/* ════════════════════════════════════════════════
+   시험 분석 — 구글 시트 GET 요청으로 데이터 수집
+════════════════════════════════════════════════ */
+/* ────────────────────────────────────────
+   인라인 비밀번호 입력
+──────────────────────────────────────── */
+const ANALYTICS_PW = "7774";
+
+function toggleLandingPw() {
+  const wrap  = document.getElementById("landingPwWrap");
+  const input = document.getElementById("pwLandingInput");
+  const err   = document.getElementById("pwLandingError");
+  const isOpen = wrap.classList.contains("show");
+  if (isOpen) {
+    wrap.classList.remove("show");
+    input.value = "";
+    err.style.display = "none";
+    input.classList.remove("error");
+  } else {
+    wrap.classList.add("show");
+    input.value = "";
+    err.style.display = "none";
+    input.classList.remove("error");
+    setTimeout(() => input.focus(), 100);
+  }
+}
+
+function checkLandingPw() {
+  const input = document.getElementById("pwLandingInput");
+  const err   = document.getElementById("pwLandingError");
+  const val   = input.value.trim();
+  if (!val) { input.focus(); return; }
+
+  if (val === ANALYTICS_PW) {
+    // ✅ 정답 — 랜딩에서 바로 분석 화면으로
+    document.getElementById("landingPwWrap").classList.remove("show");
+    input.value = "";
+    err.style.display = "none";
+    document.getElementById("landing").style.display   = "none";
+    document.getElementById("analytics").style.display = "block";
+    window.scrollTo(0, 0);
+    loadAnalytics();
+  } else {
+    // ❌ 오답
+    input.classList.add("error");
+    err.style.display = "block";
+    setTimeout(() => {
+      input.classList.remove("error");
+      input.value = "";
+      input.focus();
+    }, 700);
+  }
+}
+
+function togglePwInput() {
+  const wrap  = document.getElementById("analysisPwWrap");
+  const input = document.getElementById("pwInlineInput");
+  const err   = document.getElementById("pwInlineError");
+  const isOpen = wrap.classList.contains("show");
+  if (isOpen) {
+    // 닫기
+    wrap.classList.remove("show");
+    input.value = "";
+    err.style.display = "none";
+    input.classList.remove("error");
+  } else {
+    // 열기
+    wrap.classList.add("show");
+    input.value = "";
+    err.style.display = "none";
+    input.classList.remove("error");
+    setTimeout(() => input.focus(), 100);
+  }
+}
+
+function onPwInlineInput(el) {
+  // 숫자만 허용
+  el.value = el.value.replace(/[^0-9]/g, "");
+  // 오류 메시지 숨기기
+  document.getElementById("pwInlineError").style.display = "none";
+  el.classList.remove("error");
+}
+
+function checkInlinePw() {
+  const input = document.getElementById("pwInlineInput");
+  const err   = document.getElementById("pwInlineError");
+  const val   = input.value.trim();
+
+  if (!val) { input.focus(); return; }
+
+  if (val === ANALYTICS_PW) {
+    // ✅ 정답 — 분석 화면으로 이동
+    document.getElementById("analysisPwWrap").classList.remove("show");
+    input.value = "";
+    err.style.display = "none";
+    document.getElementById("result").style.display    = "none";
+    document.getElementById("analytics").style.display = "block";
+    window.scrollTo(0, 0);
+    loadAnalytics();
+  } else {
+    // ❌ 오답 — 흔들기 + 에러 메시지
+    input.classList.add("error");
+    err.style.display = "block";
+    setTimeout(() => {
+      input.classList.remove("error");
+      input.value = "";
+      input.focus();
+    }, 700);
+  }
+}
+
+function closeAnalytics() {
+  document.getElementById("analytics").style.display = "none";
+  // 결과화면에서 왔는지 랜딩에서 왔는지 판단
+  const resultVisible = document.getElementById("result").dataset.wasOpen === "true";
+  if (resultVisible) {
+    document.getElementById("result").style.display = "block";
+  } else {
+    document.getElementById("landing").style.display = "flex";
+  }
+  window.scrollTo(0,0);
+}
+
+async function loadAnalytics() {
+  const body = document.getElementById("anBody");
+  body.innerHTML = `<div class="an-loading"><div style="font-size:32px;margin-bottom:10px"><span class="spinner" style="width:28px;height:28px;border-width:3px"></span></div>구글 시트에서 데이터를 불러오는 중...</div>`;
+
+  if (!SHEET_URL || SHEET_URL === "YOUR_APPS_SCRIPT_WEB_APP_URL") {
+    body.innerHTML = `<div class="an-error">⚙️ 구글 시트 URL이 설정되지 않았습니다.<br>SHEET_URL 을 먼저 등록해 주세요.</div>`;
+    return;
+  }
+
+  try {
+    const res  = await fetch(SHEET_URL + "?action=getAll", { method:"GET", mode:"cors" });
+    const data = await res.json();
+    if (!data || !data.rows || data.rows.length === 0) {
+      body.innerHTML = `<div class="an-error">📭 아직 제출된 답안지가 없습니다.</div>`;
+      return;
+    }
+    renderAnalytics(data.rows);
+  } catch(e) {
+    // no-cors 환경 fallback: JSONP 방식
+    fetchAnalyticsJSONP(body);
+  }
+}
+
+function fetchAnalyticsJSONP(body) {
+  // Apps Script GET → JSON 직접 파싱 시도 (same-origin 우회)
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=CBT결과`;
+  fetch(url)
+    .then(r => r.text())
+    .then(txt => {
+      // Google Visualization API 응답 파싱
+      const json = JSON.parse(txt.replace(/^.*?\(/, "").replace(/\);?$/, ""));
+      const rows = parseGVizRows(json);
+      if (!rows || rows.length === 0) {
+        body.innerHTML = `<div class="an-error">📭 아직 제출된 답안지가 없습니다.<br><small style="opacity:.7">데이터가 있다면 Apps Script doGet 함수를 확인해 주세요.</small></div>`;
+        return;
+      }
+      renderAnalytics(rows);
+    })
+    .catch(() => {
+      body.innerHTML = `<div class="an-error">
+        ❌ 데이터를 불러올 수 없습니다.<br>
+        <small style="opacity:.8">Apps Script 코드에 doGet 함수가 있는지 확인하세요.<br>
+        아래 버튼으로 시트를 직접 확인할 수 있습니다.</small><br><br>
+        <a href="https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit" target="_blank"
+           style="color:var(--primary);font-size:13px;font-weight:700;">📊 구글 시트 직접 열기 →</a>
+      </div>`;
+    });
+}
+
+function parseGVizRows(json) {
+  const cols = json.table.cols.map(c => c.label);
+  return json.table.rows.map(r => {
+    const obj = {};
+    r.c.forEach((cell, i) => { obj[cols[i]] = cell ? (cell.v !== null ? String(cell.v) : "") : ""; });
+    return obj;
+  });
+}
+
+function renderAnalytics(rows) {
+  const body = document.getElementById("anBody");
+
+  // ── 기본 통계 계산 ──────────────────────────────────────
+  const total     = rows.length;
+  const scores    = rows.map(r => Number(r["점수"]||r["score"]||0));
+  const avgScore  = scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : 0;
+  const maxScore  = scores.length ? Math.max(...scores) : 0;
+  const passCount = scores.filter(s => s >= 8).length; // 80% 이상
+  const passRate  = total ? Math.round(passCount/total*100) : 0;
+
+  // 이탈 관련
+  const cheatRows  = rows.filter(r => Number(r["이탈횟수"]||0) > 0);
+  const autoRows   = rows.filter(r => (r["제출방식"]||"") === "자동제출");
+
+  // 팀별 평균
+  const teamMap = {};
+  rows.forEach(r => {
+    const t = r["소속팀"]||r["team"]||"미입력";
+    const s = Number(r["점수"]||0);
+    if (!teamMap[t]) teamMap[t] = {sum:0,cnt:0};
+    teamMap[t].sum += s; teamMap[t].cnt++;
+  });
+
+  // 직급별 평균
+  const rankMap = {};
+  rows.forEach(r => {
+    const rk = r["직급"]||r["rank"]||"미입력";
+    const s  = Number(r["점수"]||0);
+    if (!rankMap[rk]) rankMap[rk] = {sum:0,cnt:0};
+    rankMap[rk].sum += s; rankMap[rk].cnt++;
+  });
+
+  // 문제별 정답률 (Q1~Q10)
+  const qStats = [];
+  for (let i=1; i<=10; i++) {
+    const key = `Q${i}`;
+    const vals = rows.map(r => r[key]||"-");
+    const correct = vals.filter(v=>v==="O").length;
+    const answered = vals.filter(v=>v==="O"||v==="X").length;
+    qStats.push({ q:i, correct, answered, total:vals.length,
+      rate: answered>0 ? Math.round(correct/answered*100) : 0 });
+  }
+
+  // ── HTML 렌더링 ──────────────────────────────────────────
+  // 요약 카드
+  const summaryHtml = `
+  <div class="an-summary">
+    <div class="an-sum-card">
+      <div class="an-sum-label">총 응시자</div>
+      <div class="an-sum-value" style="color:var(--primary)">${total}</div>
+      <div class="an-sum-sub">명</div>
+    </div>
+    <div class="an-sum-card">
+      <div class="an-sum-label">평균 점수</div>
+      <div class="an-sum-value" style="color:var(--green)">${avgScore}</div>
+      <div class="an-sum-sub">/ 10점</div>
+    </div>
+    <div class="an-sum-card">
+      <div class="an-sum-label">합격률 (8점↑)</div>
+      <div class="an-sum-value" style="color:${passRate>=70?'var(--green)':passRate>=50?'var(--orange)':'var(--red)'}">${passRate}%</div>
+      <div class="an-sum-sub">${passCount}명 합격</div>
+    </div>
+    <div class="an-sum-card">
+      <div class="an-sum-label">부정행위 감지</div>
+      <div class="an-sum-value" style="color:${cheatRows.length>0?'var(--red)':'var(--green)'}">${cheatRows.length}</div>
+      <div class="an-sum-sub">명 (자동제출 ${autoRows.length}명)</div>
+    </div>
+  </div>`;
+
+  // 문제별 정답률 바
+  const maxQRate = Math.max(...qStats.map(q=>q.rate), 1);
+  const qBarsHtml = qStats.map(q => {
+    const color = q.rate>=80?"var(--green)":q.rate>=60?"var(--primary)":"var(--red)";
+    return `
+    <div class="q-bar-row">
+      <div class="q-bar-num">Q${q.q}</div>
+      <div class="q-bar-wrap">
+        <div class="q-bar-fill" style="width:${q.rate}%;background:${color}"></div>
+      </div>
+      <div class="q-bar-pct">${q.rate}%</div>
+    </div>`;
+  }).join("");
+
+  // 팀별 바
+  const teamEntries = Object.entries(teamMap).sort((a,b)=>b[1].sum/b[1].cnt - a[1].sum/a[1].cnt);
+  const maxTeamAvg  = Math.max(...teamEntries.map(([,v])=>v.sum/v.cnt), 1);
+  const teamBarsHtml = teamEntries.map(([name,v]) => {
+    const avg   = (v.sum/v.cnt).toFixed(1);
+    const width = Math.round((v.sum/v.cnt)/10*100);
+    const color = width>=80?"var(--green)":width>=60?"var(--primary)":"var(--orange)";
+    return `
+    <div class="bar-row">
+      <div class="bar-label">${name}</div>
+      <div class="bar-wrap">
+        <div class="bar-fill" style="width:${width}%;background:${color}">
+          <span>${avg}점</span>
+        </div>
+      </div>
+      <div class="bar-count">${v.cnt}명</div>
+    </div>`;
+  }).join("");
+
+  // 직급별 바
+  const rankOrder = ["사원","계장","대리","과장","차장","부장"];
+  const rankEntries = Object.entries(rankMap).sort((a,b)=>rankOrder.indexOf(a[0])-rankOrder.indexOf(b[0]));
+  const rankBarsHtml = rankEntries.map(([name,v]) => {
+    const avg   = (v.sum/v.cnt).toFixed(1);
+    const width = Math.round((v.sum/v.cnt)/10*100);
+    const color = width>=80?"var(--green)":width>=60?"var(--primary)":"var(--orange)";
+    return `
+    <div class="bar-row">
+      <div class="bar-label">${name}</div>
+      <div class="bar-wrap">
+        <div class="bar-fill" style="width:${width}%;background:${color}">
+          <span>${avg}점</span>
+        </div>
+      </div>
+      <div class="bar-count">${v.cnt}명</div>
+    </div>`;
+  }).join("");
+
+  // 전체 응시자 목록
+  const tableRows = [...rows].sort((a,b)=>Number(b["점수"]||0)-Number(a["점수"]||0)).map((r,i) => {
+    const sc  = Number(r["점수"]||0);
+    const lv  = Number(r["이탈횟수"]||0);
+    const pill = sc>=8?"hi":sc>=6?"mid":"lo";
+    const cheatPill = lv===0?"clean":lv<=3?"warn":"danger";
+    const cheatTxt  = lv===0?"정상":lv+"회";
+    return `<tr>
+      <td style="color:var(--gray-400);font-family:monospace">${i+1}</td>
+      <td><strong>${r["응시자"]||r["name"]||"-"}</strong></td>
+      <td>${r["직급"]||"-"}</td>
+      <td>${r["소속팀"]||"-"}</td>
+      <td><span class="score-pill ${pill}">${sc}점</span></td>
+      <td style="color:var(--gray-500)">${r["정답률"]||"-"}</td>
+      <td><span class="cheat-pill ${cheatPill}">${cheatTxt}</span></td>
+      <td style="color:var(--gray-400);font-size:11px">${(r["제출시각"]||"").slice(0,16)}</td>
+    </tr>`;
+  }).join("");
+
+  body.innerHTML = `
+    ${summaryHtml}
+
+    <div class="an-card">
+      <div class="an-card-title">📉 문제별 정답률</div>
+      ${qBarsHtml}
+    </div>
+
+    <div class="an-card">
+      <div class="an-card-title">🏢 팀별 평균 점수</div>
+      ${teamBarsHtml || '<div style="color:var(--gray-400);font-size:13px">데이터 없음</div>'}
+    </div>
+
+    <div class="an-card">
+      <div class="an-card-title">👤 직급별 평균 점수</div>
+      ${rankBarsHtml || '<div style="color:var(--gray-400);font-size:13px">데이터 없음</div>'}
+    </div>
+
+    <div class="an-card">
+      <div class="an-card-title">📋 전체 응시자 목록 (${total}명, 점수 높은순)</div>
+      <div class="an-table-wrap">
+        <table class="an-table">
+          <thead><tr>
+            <th>#</th><th>이름</th><th>직급</th><th>팀</th>
+            <th>점수</th><th>정답률</th><th>이탈</th><th>제출시각</th>
+          </tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:10px">
+      <a href="https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit" target="_blank"
+         style="color:var(--primary);font-size:13px;font-weight:700;">📊 구글 시트 전체 보기 →</a>
+    </div>
+  `;
+}
+
 </script>
 </body>
 </html>
