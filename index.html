@@ -221,6 +221,8 @@ body { font-family:'Noto Sans KR', sans-serif; background:#fff; color:var(--gray
   border:1.5px solid var(--gray-200); border-radius:10px; background:#fff;
   cursor:pointer; transition:all .14s; text-align:left;
   font-size:14px; color:var(--gray-700); font-family:'Noto Sans KR',sans-serif; line-height:1.5;
+  width:100%; min-height:52px; word-break:keep-all;
+  touch-action:manipulation; -webkit-tap-highlight-color:transparent;
 }
 .opt-btn:hover:not(:disabled) { border-color:var(--accent); background:var(--primary-light); }
 .opt-num {
@@ -238,6 +240,7 @@ body { font-family:'Noto Sans KR', sans-serif; background:#fff; color:var(--gray
   flex:1; padding:13px; border:1.5px solid var(--gray-200); border-radius:10px;
   font-size:14px; font-weight:700; cursor:pointer;
   transition:all .14s; font-family:'Noto Sans KR',sans-serif; background:#fff; color:var(--gray-700);
+  touch-action:manipulation; -webkit-tap-highlight-color:transparent; min-height:52px;
 }
 .nav-btn.next   { background:var(--primary); border-color:var(--primary); color:#fff; }
 .nav-btn.submit { background:var(--green); border-color:var(--green); color:#fff; }
@@ -904,7 +907,7 @@ const questions = [
   },
   {
     q: "일반도시가스사업의 본관에 대한 정의로 옳은 것은?",
-    opts: ["도시가스제조사업소의 부지 경계에서 가스사용자 토지 경계까지 이르는 배관","도시가스제조사업소의 부지 경계 또는 가스도매사업자의 가스시설 경계에서 정압기까지 이르는 배관","정압기에서 가스사용자 건축물의 계량기 전단밸브까지 이르는 배관","가스사용자 토지 경계에서 연소기까지 이르는 배관"],
+    opts: ["제조사업소 부지 경계 → 가스사용자 토지 경계까지의 배관","제조사업소 부지 경계 또는 가스도매사업자 가스시설 경계 → 정압기까지의 배관","정압기 → 가스사용자 건축물 계량기 전단밸브까지의 배관","가스사용자 토지 경계 → 연소기까지의 배관"],
     ans: 1,
     law: "도시가스사업법 시행규칙 제2조 제2호 나목\n일반도시가스사업의 본관: 도시가스제조사업소의 부지 경계 또는 가스도매사업자의 가스시설 경계에서 정압기까지 이르는 배관.\n\n▸ 공급관: 정압기 → 사용자 토지경계 또는 계량기 전단밸브\n▸ 내관: 토지경계(또는 계량기 전단밸브) → 연소기"
   },
@@ -974,28 +977,40 @@ function renderQ() {
   q.opts.forEach((opt, i) => {
     const btn = document.createElement("button");
     btn.className = "opt-btn" + (answers[currentQ] === i ? " selected" : "");
+    btn.setAttribute("type","button");
     btn.innerHTML = `<div class="opt-num">${["①","②","③","④"][i]}</div><span>${opt}</span>`;
     btn.onclick = () => selectAnswer(i);
     c.appendChild(btn);
   });
 
-  document.getElementById("prevBtn").style.display = currentQ === 0 ? "none" : "flex";
+  const pb = document.getElementById("prevBtn");
+  pb.style.display = currentQ === 0 ? "none" : "flex";
+  pb.onclick = null;
+  pb.onclick = function() { prevQ(); };
+
   const nb = document.getElementById("nextBtn");
+  nb.onclick = null;
   if (currentQ === 9) {
-    nb.textContent = "제출하기 ✓"; nb.className = "nav-btn submit"; nb.onclick = submitExam;
+    nb.textContent = "제출하기 ✓";
+    nb.className   = "nav-btn submit";
+    nb.onclick     = function() { submitExam(); };
   } else {
-    nb.textContent = "다음 →"; nb.className = "nav-btn next"; nb.onclick = nextQ;
+    nb.textContent = "다음 →";
+    nb.className   = "nav-btn next";
+    nb.onclick     = function() { nextQ(); };
   }
   initDots();
 }
 
 function selectAnswer(idx) {
   answers[currentQ] = idx;
-  document.querySelectorAll(".opt-btn").forEach((b,i) => b.classList.toggle("selected", i === idx));
-  document.querySelectorAll(".opt-btn .opt-num").forEach((n,i) => {
-    n.style.background  = i === idx ? "var(--primary)" : "";
-    n.style.borderColor = i === idx ? "var(--primary)" : "";
-    n.style.color       = i === idx ? "#fff" : "";
+  // 클래스만으로 처리 — 인라인 style 직접 조작 제거 (구형 안드로이드 호환)
+  document.querySelectorAll(".opt-btn").forEach(function(b, i) {
+    if (i === idx) {
+      b.classList.add("selected");
+    } else {
+      b.classList.remove("selected");
+    }
   });
   initDots();
 }
