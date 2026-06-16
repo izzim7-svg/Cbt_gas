@@ -1632,51 +1632,49 @@ async function loadDashStatus(){
 function renderDashStatus(teamData, today){
   const teams = CFG.teams;
   let totalSigs=0, doneCnt=0, activeTeams=0;
-  const nudgeLines = [`[TBM 미서명 안내 \u2014 ${today}]
-`];
+  const nudgeLines = ['[TBM ' + today + ' 미서명 안내]\n'];
   let hasNudge = false;
 
-  const rows = teams.map(team=>{
+  let rowsHtml = '';
+  teams.forEach(function(team){
     const d = teamData[team]||{roster:[],sigs:[]};
     const total  = d.roster.length;
-    const done   = d.roster.filter(m=>d.sigs.find(s=>s.name===m.name)).length;
+    const done   = d.roster.filter(function(m){ return d.sigs.find(function(s){ return s.name===m.name; }); }).length;
     const pct    = total>0 ? Math.round(done/total*100) : 0;
     const color  = pct===100?'var(--gr)':pct>50?'var(--or)':'var(--rd)';
     totalSigs += done;
     if(total>0) activeTeams++;
     if(total>0 && done===total) doneCnt++;
 
-    // 미서명자 독촉 메시지 수집
     if(total>0 && done<total){
-      const unsigned = d.roster.filter(m=>!d.sigs.find(s=>s.name===m.name)).map(m=>m.name);
+      const unsigned = d.roster.filter(function(m){ return !d.sigs.find(function(s){ return s.name===m.name; }); }).map(function(m){ return m.name; });
       if(unsigned.length){
         hasNudge=true;
-        nudgeLines.push(`▶ ${team}: ${unsigned.join(', ')} (${unsigned.length}명 미서명)`);
+        nudgeLines.push('▶ ' + team + ': ' + unsigned.join(', ') + ' (' + unsigned.length + '명 미서명)');
       }
     }
 
-    return `<div class="dash-team-row">
-      <div class="dash-team-name">${team}</div>
-      <div class="dash-prog-wrap">
-        <div class="dash-prog-bar" style="width:${pct}%;background:${color};"></div>
-      </div>
-      <div class="dash-pct" style="color:${color};">${total>0?pct+'%':'-'}</div>
-      <div style="font-size:11px;color:var(--sub);width:40px;text-align:right;">${total>0?done+'/'+total:'명단없음'}</div>
-    </div>`;
-  }).join('');
+    const pctText = total>0 ? pct+'%' : '-';
+    const cntText = total>0 ? done+'/'+total : '-';
+    rowsHtml += '<div class="dash-team-row">'
+      + '<div class="dash-team-name">' + team + '</div>'
+      + '<div class="dash-prog-wrap">'
+      + '<div class="dash-prog-bar" style="width:' + pct + '%;background:' + color + ';"></div>'
+      + '</div>'
+      + '<div class="dash-pct" style="color:' + color + ';">' + pctText + '</div>'
+      + '<div style="font-size:11px;color:var(--sub);width:40px;text-align:right;">' + cntText + '</div>'
+      + '</div>';
+  });
 
-  document.getElementById('dash-team-list').innerHTML = rows||'<p style="color:var(--sub);font-size:13px;text-align:center;padding:12px;">데이터 없음</p>';
+  document.getElementById('dash-team-list').innerHTML = rowsHtml || '<p style="color:var(--sub);font-size:13px;text-align:center;padding:12px;">데이터 없음</p>';
   document.getElementById('dash-total-teams').textContent = activeTeams;
   document.getElementById('dash-done-teams').textContent  = doneCnt;
   document.getElementById('dash-total-sigs').textContent  = totalSigs;
 
-  // 독촉 메시지
   const nudgeCard = document.getElementById('dash-nudge-card');
   if(hasNudge){
-    nudgeLines.push('
-위 팀원들은 TBM 서명을 완료해주시기 바랍니다.');
-    document.getElementById('dash-nudge-msg').textContent = nudgeLines.join('
-');
+    nudgeLines.push('\n위 팀원들은 TBM 서명을 완료해주시기 바랍니다.');
+    document.getElementById('dash-nudge-msg').textContent = nudgeLines.join('\n');
     nudgeCard.style.display='block';
   }else{
     nudgeCard.style.display='none';
@@ -1735,7 +1733,7 @@ async function loadHistDetail(team, date){
   const content = document.getElementById('hist-detail-content');
   const sigList = document.getElementById('hist-sig-list');
   card.style.display='block';
-  title.textContent=`${team} \u2014 ${date}`;
+  title.textContent = team + ' - ' + date;
   content.innerHTML='<span class="spin"></span> 불러오는 중...';
 
   try{
