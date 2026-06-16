@@ -483,33 +483,59 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
 // ══════════════════════════════════════════════════════════
 // 설정 — Apps Script URL (여기만 교체하면 됨)
 // ══════════════════════════════════════════════════════════
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwi6ShcbNSTlVWREg6GOvNIc-gjVywzosQZ98DCgk-HgZ9HCij46OYD-ab2xXKzB8oh/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwH0d7ls-j9Mxsj2leaL-HrCxifh7VFgytYLf8EJg2zF-JWEr1NMQ0UPBajxsXN-GQO/exec';
 
 // ══════════════════════════════════════════════════════════
 // Apps Script 코드 (Code.gs에 붙여넣을 내용)
 // ══════════════════════════════════════════════════════════
 const SCRIPT_CODE = `
+// ── CORS 헤더 공통 ─────────────────────────────────────────
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
+  };
+}
+
+function corsOutput(obj) {
+  const output = ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+  return output;
+}
+
+// ── POST: 저장 요청 ────────────────────────────────────────
 function doPost(e) {
   try {
     const d = JSON.parse(e.postData.contents);
-    if (d.action === 'saveTBM')    return saveTBM(d);
-    if (d.action === 'saveRoster') return saveRoster(d);
-    if (d.action === 'saveSig')    return saveSig(d);
-    return err('unknown action');
-  } catch(ex) { return err(ex.toString()); }
+    if (d.action === 'saveTBM')    return corsOutput(saveTBM(d));
+    if (d.action === 'saveRoster') return corsOutput(saveRoster(d));
+    if (d.action === 'saveSig')    return corsOutput(saveSig(d));
+    return corsOutput({ok:false, msg:'unknown action'});
+  } catch(ex) {
+    return corsOutput({ok:false, msg:ex.toString()});
+  }
 }
 
+// ── GET: 조회 + GET 방식 저장 ─────────────────────────────
 function doGet(e) {
+  const a = e.parameter.action;
   try {
-    const a = e.parameter.action;
-    if (a === 'ping')      return json({ok:true, msg:'연결 성공'});
-    if (a === 'getTBM')    return getTBM(e.parameter);
-    if (a === 'getRoster') return getRoster(e.parameter);
-    if (a === 'getSigs')   return getSigs(e.parameter);
-    return err('unknown action');
-  } catch(ex) { return err(ex.toString()); }
+    if (a === 'ping')           return corsOutput({ok:true, msg:'연결 성공'});
+    if (a === 'getTBM')         return corsOutput(getTBM(e.parameter));
+    if (a === 'getRoster')      return corsOutput(getRoster(e.parameter));
+    if (a === 'getSigs')        return corsOutput(getSigs(e.parameter));
+    // GET 방식 저장 (CORS 우회용)
+    if (a === 'saveTBM')        return corsOutput(saveTBM(e.parameter));
+    if (a === 'saveRoster')     return corsOutput(saveRosterGet(e.parameter));
+    if (a === 'saveSig')        return corsOutput(saveSigGet(e.parameter));
+    return corsOutput({ok:false, msg:'unknown action'});
+  } catch(ex) {
+    return corsOutput({ok:false, msg:ex.toString()});
+  }
 }
 
+// ── 시트 헬퍼 ─────────────────────────────────────────────
 function getSheet(name, headers) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(name);
@@ -517,7 +543,8 @@ function getSheet(name, headers) {
     sh = ss.insertSheet(name);
     if (headers && headers.length) {
       sh.appendRow(headers);
-      sh.getRange(1,1,1,headers.length).setBackground('#1e40af').setFontColor('#fff').setFontWeight('bold');
+      sh.getRange(1,1,1,headers.length)
+        .setBackground('#1e40af').setFontColor('#fff').setFontWeight('bold');
     }
   }
   return sh;
@@ -527,75 +554,112 @@ function today() {
   return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
+// ── TBM 저장 ──────────────────────────────────────────────
 function saveTBM(d) {
   const sh = getSheet('TBM',['저장시각','날짜','시간','팀','장소','작업내용','진행자','위험요인','안전수칙','보호구','특이사항','회사']);
   const rows = sh.getDataRange().getValues();
   for (let i = rows.length-1; i >= 1; i--) {
-    if (rows[i][1]===d.date && rows[i][3]===d.team) sh.deleteRow(i+1);
+    if (String(rows[i][1])===String(d.date) && String(rows[i][3])===String(d.team)) sh.deleteRow(i+1);
   }
-  sh.appendRow([new Date().toISOString(),d.date,d.time||'',d.team,d.loc||'',d.work||'',d.lead||'',d.danger||'',d.safety||'',d.ppe||'',d.note||'',d.company||'']);
-  return ok('TBM 저장 완료');
+  sh.appendRow([new Date().toISOString(), d.date, d.time||'', d.team, d.loc||'',
+    d.work||'', d.lead||'', d.danger||'', d.safety||'', d.ppe||'', d.note||'', d.company||'']);
+  return {ok:true, msg:'TBM 저장 완료'};
 }
 
+// ── TBM 조회 ──────────────────────────────────────────────
 function getTBM(p) {
   const sh = getSheet('TBM',[]);
   const rows = sh.getDataRange().getValues();
   const date = p.date || today();
   const found = rows.slice(1).filter(r=>String(r[1])===date && String(r[3])===p.team).pop();
-  if (!found) return json({ok:false, msg:'TBM 없음'});
-  return json({ok:true, tbm:{date:String(found[1]),time:String(found[2]),team:String(found[3]),loc:String(found[4]),work:String(found[5]),lead:String(found[6]),danger:String(found[7]),safety:String(found[8]),ppe:String(found[9]),note:String(found[10]),company:String(found[11])}});
+  if (!found) return {ok:false, msg:'TBM 없음'};
+  return {ok:true, tbm:{
+    date:String(found[1]), time:String(found[2]), team:String(found[3]),
+    loc:String(found[4]),  work:String(found[5]), lead:String(found[6]),
+    danger:String(found[7]), safety:String(found[8]),
+    ppe:String(found[9]),  note:String(found[10]), company:String(found[11])
+  }};
 }
 
+// ── 팀원 명단 저장 (POST) ─────────────────────────────────
 function saveRoster(d) {
   const sh = getSheet('ROSTER',['저장시각','팀','이름','직책']);
   const rows = sh.getDataRange().getValues();
-  for (let i = rows.length-1; i >= 1; i--) { if (rows[i][1]===d.team) sh.deleteRow(i+1); }
-  (d.members||[]).forEach(m => sh.appendRow([new Date().toISOString(),d.team,m.name,m.rank]));
-  return ok('명단 저장 완료');
+  for (let i = rows.length-1; i >= 1; i--) {
+    if (String(rows[i][1])===String(d.team)) sh.deleteRow(i+1);
+  }
+  (d.members||[]).forEach(m => sh.appendRow([new Date().toISOString(), d.team, m.name, m.rank]));
+  return {ok:true, msg:'명단 저장 완료 ('+( d.members||[]).length+'명)'};
 }
 
+// ── 팀원 명단 저장 (GET) ─────────────────────────────────
+function saveRosterGet(p) {
+  let members = [];
+  try { members = JSON.parse(p.members||'[]'); } catch(e){}
+  return saveRoster({team: p.team, members});
+}
+
+// ── 팀원 명단 조회 ────────────────────────────────────────
 function getRoster(p) {
   const sh = getSheet('ROSTER',[]);
   const rows = sh.getDataRange().getValues();
-  const members = rows.slice(1).filter(r=>String(r[1])===p.team).map(r=>({name:String(r[2]),rank:String(r[3])}));
-  return json({ok:true, members});
+  const members = rows.slice(1).filter(r=>String(r[1])===p.team)
+    .map(r=>({name:String(r[2]), rank:String(r[3])}));
+  return {ok:true, members};
 }
 
+// ── 서명 저장 (POST) ──────────────────────────────────────
 function saveSig(d) {
   const sh = getSheet('SIGS',['제출시각','날짜','팀','이름','직책','시간','작업내용','장소','서명여부']);
   const rows = sh.getDataRange().getValues();
   for (let i = rows.length-1; i >= 1; i--) {
-    if (rows[i][1]===d.date && rows[i][2]===d.team && rows[i][3]===d.name) sh.deleteRow(i+1);
+    if (String(rows[i][1])===String(d.date) && String(rows[i][2])===String(d.team) && String(rows[i][3])===String(d.name)) sh.deleteRow(i+1);
   }
-  sh.appendRow([new Date().toISOString(),d.date,d.team,d.name,d.rank||'',d.time||'',d.work||'',d.loc||'',d.sigImg?'서명있음':'']);
+  sh.appendRow([new Date().toISOString(), d.date, d.team, d.name, d.rank||'',
+    d.time||'', d.work||'', d.loc||'', d.sigImg ? '서명있음' : '서명없음']);
   const last = sh.getLastRow();
-  sh.getRange(last,1,1,9).setBackground(d.sigImg?'#dcfce7':'#ffedd5');
-  if (d.sigImg) {
-    const img = getSheet('SIG_IMAGES',['날짜','팀','이름','서명이미지']);
-    const ir = img.getDataRange().getValues();
-    for (let i=ir.length-1;i>=1;i--) { if(ir[i][0]===d.date&&ir[i][1]===d.team&&ir[i][2]===d.name) img.deleteRow(i+1); }
-    img.appendRow([d.date,d.team,d.name,d.sigImg]);
+  sh.getRange(last,1,1,9).setBackground(d.sigImg ? '#dcfce7' : '#ffedd5');
+  // 서명 이미지 저장
+  if (d.sigImg && d.sigImg.length > 100) {
+    const imgSh = getSheet('SIG_IMAGES',['날짜','팀','이름','서명이미지(base64)']);
+    const ir = imgSh.getDataRange().getValues();
+    for (let i=ir.length-1; i>=1; i--) {
+      if (String(ir[i][0])===String(d.date) && String(ir[i][1])===String(d.team) && String(ir[i][2])===String(d.name)) imgSh.deleteRow(i+1);
+    }
+    imgSh.appendRow([d.date, d.team, d.name, d.sigImg]);
   }
-  return ok('서명 저장 완료');
+  return {ok:true, msg:'서명 저장 완료'};
 }
 
+// ── 서명 저장 (GET 방식 — CORS 우회) ────────────────────
+function saveSigGet(p) {
+  return saveSig({
+    date: p.date, team: p.team, name: p.name,
+    rank: p.rank||'', time: p.time||'',
+    work: p.work||'', loc: p.loc||'',
+    sigImg: p.sigImg || ''
+  });
+}
+
+// ── 서명 조회 ─────────────────────────────────────────────
 function getSigs(p) {
   const sh    = getSheet('SIGS',[]);
   const imgSh = getSheet('SIG_IMAGES',[]);
   const rows    = sh.getDataRange().getValues();
   const imgRows = imgSh.getDataRange().getValues();
   const date = p.date || today();
-  const sigs = rows.slice(1).filter(r=>String(r[1])===date&&String(r[2])===p.team).map(r=>{
-    const img = imgRows.slice(1).find(ir=>String(ir[0])===String(r[1])&&String(ir[1])===String(r[2])&&String(ir[2])===String(r[3]));
-    return {date:String(r[1]),team:String(r[2]),name:String(r[3]),rank:String(r[4]),time:String(r[5]),work:String(r[6]),loc:String(r[7]),sigImg:img?String(img[3]):''};
-  });
-  return json({ok:true, sigs});
-}
-
-function ok(msg)  { return json({ok:true,  msg}); }
-function err(msg) { return json({ok:false, msg}); }
-function json(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+  const sigs = rows.slice(1)
+    .filter(r => String(r[1])===date && String(r[2])===p.team)
+    .map(r => {
+      const img = imgRows.slice(1).find(ir =>
+        String(ir[0])===String(r[1]) && String(ir[1])===String(r[2]) && String(ir[2])===String(r[3]));
+      return {
+        date:String(r[1]), team:String(r[2]), name:String(r[3]),
+        rank:String(r[4]), time:String(r[5]), work:String(r[6]), loc:String(r[7]),
+        sigImg: img ? String(img[3]) : ''
+      };
+    });
+  return {ok:true, sigs};
 }`;
 
 // ══════════════════════════════════════════════════════════
@@ -630,6 +694,10 @@ window.onload = () => {
     const sc = JSON.parse(LS.getItem('tbm_cfg')||'null'); if(sc) Object.assign(CFG,sc);
     const sr = JSON.parse(LS.getItem('tbm_roster')||'null'); if(sr) ROSTER=sr;
     const st = JSON.parse(LS.getItem('tbm_data')||'null'); if(st) TBM=st;
+    // 오늘 날짜 서명 복원
+    const today = new Date().toISOString().slice(0,10);
+    const ss = JSON.parse(LS.getItem('tbm_sigs_'+today)||'[]');
+    if(ss.length) SIGS = ss;
   } catch(e){}
   loadCfgUI();
   buildGrids();
@@ -755,8 +823,33 @@ async function apiGet(params){
 }
 
 async function apiPost(data){
-  await fetch(SCRIPT_URL, {method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
-  return {ok:true};
+  // GET 방식으로 전송 (CORS preflight 없음, Apps Script와 완전 호환)
+  const sigImg = data.sigImg || '';
+  const payload = {...data};
+
+  // 서명 이미지가 있을 경우 별도 처리 (URL 길이 제한 고려)
+  if(sigImg && sigImg.length > 100){
+    // 서명 있는 경우: 이미지 포함 GET 전송 (Apps Script는 GET body 없음 → 파라미터로)
+    const params = {};
+    Object.keys(payload).forEach(k => {
+      if(k !== 'sigImg') params[k] = payload[k];
+    });
+    params.sigImg = sigImg;
+    const q = Object.entries(params).map(([k,v])=>`${k}=${encodeURIComponent(String(v))}`).join('&');
+    try{
+      const r = await fetch(`${SCRIPT_URL}?${q}`);
+      const txt = await r.text();
+      try{ return JSON.parse(txt); }catch(e){ return {ok:true}; }
+    }catch(e){ return {ok:false, msg:e.toString()}; }
+  }
+
+  // 서명 없는 경우: 일반 GET
+  const q = Object.entries(payload).map(([k,v])=>`${k}=${encodeURIComponent(String(v))}`).join('&');
+  try{
+    const r = await fetch(`${SCRIPT_URL}?${q}`);
+    const txt = await r.text();
+    try{ return JSON.parse(txt); }catch(e){ return {ok:true}; }
+  }catch(e){ return {ok:false, msg:e.toString()}; }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1143,24 +1236,26 @@ function sigEmpty(){
 async function submitSig(){
   if(sigEmpty()){ alert2('서명 필요','서명 패드에 서명해 주세요.'); return; }
   const cv     = document.getElementById('sigCanvas');
-  const sigImg = cv.toDataURL('image/png');
+  // JPEG로 압축 (PNG 대비 1/5 크기)
+  const sigImg = cv.toDataURL('image/jpeg', 0.7);
   const now    = new Date();
   const time   = now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
   const date   = TBM ? TBM.date : now.toISOString().slice(0,10);
   const record = {name:mState.name, team:mState.team, rank:mState.rank, time, date, sigImg, work:TBM?.work||'', loc:TBM?.loc||''};
 
-  // 로컬 저장
+  // ① 로컬 저장 (PDF 생성용 — 서버 실패해도 보장)
   SIGS = SIGS.filter(s=>!(s.name===mState.name && s.team===mState.team && s.date===date));
   SIGS.push(record);
+  try{ LS.setItem('tbm_sigs_'+date, JSON.stringify(SIGS)); }catch(e){}
 
-  // 서버 전송
+  // ② 서버 전송
   setSyncStatus('ing','서명 저장 중...');
   let ok = false;
   try{
-    await apiPost({action:'saveSig', ...record});
+    const r = await apiPost({action:'saveSig', ...record});
     setSyncStatus('ok','서명 서버 저장 완료 ✓');
     ok = true;
-  }catch(e){ setSyncStatus('err','서버 저장 실패'); }
+  }catch(e){ setSyncStatus('err','서명은 로컬에 저장됨 (서버 전송 실패)'); }
 
   // 완료 화면
   document.getElementById('done-msg').innerHTML =
@@ -1195,14 +1290,31 @@ async function submitSig(){
 async function genPDF(teamOverride){
   const team = teamOverride || LEAD_TEAM;
   const date = TBM ? TBM.date : new Date().toISOString().slice(0,10);
-  let sigs = SIGS.filter(s=>s.team===team && s.date===date);
 
-  setSyncStatus('ing','PDF용 서명 불러오는 중...');
+  // ① 로컬 서명 우선 사용 (서버 없어도 PDF 생성 보장)
+  let sigs = SIGS.filter(s=>s.team===team && s.date===date);
+  // localStorage 백업에서도 복원
+  try{
+    const localSigs = JSON.parse(LS.getItem('tbm_sigs_'+date)||'[]');
+    if(localSigs.length > sigs.length) sigs = localSigs.filter(s=>s.team===team);
+  }catch(e){}
+
+  // ② 서버에서 추가 서명 병합 시도 (실패해도 계속)
+  setSyncStatus('ing','PDF 생성 중...');
   try{
     const r = await apiGet({action:'getSigs', team, date});
-    if(r.ok && r.sigs) sigs = r.sigs;
-    setSyncStatus('ok','불러오기 완료 ✓');
-  }catch(e){}
+    if(r.ok && r.sigs && r.sigs.length >= sigs.length){
+      sigs = r.sigs; // 서버가 더 최신이면 교체
+    }
+    setSyncStatus('ok','서명 데이터 확인 완료 ✓');
+  }catch(e){
+    setSyncStatus('ok','로컬 서명 데이터로 PDF 생성');
+  }
+
+  if(!sigs.length && !TBM){
+    alert2('데이터 없음','저장된 TBM 및 서명 데이터가 없습니다.\n팀원 서명 후 다시 시도해주세요.');
+    return;
+  }
 
   const tbm     = TBM||{};
   const company = CFG.company||'';
