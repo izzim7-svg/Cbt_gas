@@ -712,10 +712,21 @@ function setSS(state, msg){
 async function checkConn(){
   setSS('ing','Firebase 연결 확인 중...');
   try{
-    if(!initDB()){ return; }
-    await DB.ref('.info/connected').once('value');
+    if(!initDB()){
+      setSS('err','Firebase 초기화 실패');
+      return;
+    }
+    // 실제 DB 읽기로 연결 확인
+    const connRef = DB.ref('.info/connected');
+    const snap = await connRef.once('value');
+    // .info/connected가 false여도 DB 자체는 연결된 것
+    // 실제 데이터 경로로 ping 테스트
+    await DB.ref('_ping').set({t: Date.now()});
     setSS('ok','Firebase 연결됨 ✓');
-  }catch(e){ setSS('err','연결 실패: '+e.message); }
+  }catch(e){
+    console.error('Firebase 연결 오류:', e);
+    setSS('err','연결 실패: '+e.message);
+  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -946,7 +957,7 @@ function buildQR(){
     ? `https://izzim7-svg.github.io/Cbt_gas/TBM.html?screen=member&team=${encodeURIComponent(LEAD_TEAM)}`
     : `${window.location.origin}${window.location.pathname}?screen=member&team=${encodeURIComponent(LEAD_TEAM)}`;
   document.getElementById('qr-url').value=pageUrl;
-  document.getElementById('qr-label').textContent=`${LEAD_TEAM} — ${TBM?TBM.date:'오늘'}`;
+  document.getElementById('qr-label').textContent=`${LEAD_TEAM} - ${TBM?TBM.date:'오늘'}`;
   try{
     new QRCode(box,{text:pageUrl,width:220,height:220,colorDark:'#1e40af',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
   }catch(e){ box.innerHTML='<p style="font-size:12px;color:var(--sub);text-align:center;padding:20px;">QR 생성 실패. 링크를 직접 공유하세요.</p>'; }
@@ -960,7 +971,7 @@ function copyUrl(){
 }
 
 // ══════════════════════════════════════════════════════════
-// 서명 현황 — Firebase 실시간 리스너
+// 서명 현황 - Firebase 실시간 리스너
 // ══════════════════════════════════════════════════════════
 function startStatusListener(){
   dbUnlisten(statusListener);
@@ -1263,7 +1274,7 @@ async function submitSig(){
 }
 
 // ══════════════════════════════════════════════════════════
-// PDF 생성 (HTML 인쇄 방식 — 한글 완벽 지원)
+// PDF 생성 (HTML 인쇄 방식 - 한글 완벽 지원)
 // ══════════════════════════════════════════════════════════
 async function genPDF(teamOverride){
   const team=teamOverride||LEAD_TEAM;
@@ -1284,7 +1295,7 @@ async function genPDF(teamOverride){
 
   const tbm=TBM||{};
   const company=CFG.company||'';
-  const supervisor=tbm.supervisor||CFG.supervisor||'—';
+  const supervisor=tbm.supervisor||CFG.supervisor||'-';
   const roster=ROSTER[team]||[];
   const allRows=roster.length>0
     ?roster.map(m=>({...m,sig:sigs.find(s=>s.name===m.name)}))
@@ -1621,7 +1632,7 @@ async function loadDashStatus(){
 function renderDashStatus(teamData, today){
   const teams = CFG.teams;
   let totalSigs=0, doneCnt=0, activeTeams=0;
-  const nudgeLines = [`[TBM 미서명 안내 — ${today}]
+  const nudgeLines = [`[TBM 미서명 안내 \u2014 ${today}]
 `];
   let hasNudge = false;
 
@@ -1649,7 +1660,7 @@ function renderDashStatus(teamData, today){
       <div class="dash-prog-wrap">
         <div class="dash-prog-bar" style="width:${pct}%;background:${color};"></div>
       </div>
-      <div class="dash-pct" style="color:${color};">${total>0?pct+'%':'—'}</div>
+      <div class="dash-pct" style="color:${color};">${total>0?pct+'%':'-'}</div>
       <div style="font-size:11px;color:var(--sub);width:40px;text-align:right;">${total>0?done+'/'+total:'명단없음'}</div>
     </div>`;
   }).join('');
@@ -1724,7 +1735,7 @@ async function loadHistDetail(team, date){
   const content = document.getElementById('hist-detail-content');
   const sigList = document.getElementById('hist-sig-list');
   card.style.display='block';
-  title.textContent=`${team} — ${date}`;
+  title.textContent=`${team} \u2014 ${date}`;
   content.innerHTML='<span class="spin"></span> 불러오는 중...';
 
   try{
