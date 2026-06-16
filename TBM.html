@@ -483,7 +483,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
 // ══════════════════════════════════════════════════════════
 // 설정 — Apps Script URL (여기만 교체하면 됨)
 // ══════════════════════════════════════════════════════════
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwH0d7ls-j9Mxsj2leaL-HrCxifh7VFgytYLf8EJg2zF-JWEr1NMQ0UPBajxsXN-GQO/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwi6ShcbNSTlVWREg6GOvNIc-gjVywzosQZ98DCgk-HgZ9HCij46OYD-ab2xXKzB8oh/exec';
 
 // ══════════════════════════════════════════════════════════
 // Apps Script 코드 (Code.gs에 붙여넣을 내용)
@@ -952,12 +952,28 @@ function renderMemberEdit(){
 
 async function syncRoster(){
   const members = ROSTER[LEAD_TEAM]||[];
-  setSyncStatus('ing','명단 저장 중...');
+  if(!members.length){ alert2('명단 없음','등록된 팀원이 없습니다.'); return; }
+  setSyncStatus('ing','명단 서버 저장 중...');
   try{
-    await apiPost({action:'saveRoster', team:LEAD_TEAM, members});
-    setSyncStatus('ok',`명단 ${members.length}명 서버 저장 완료 ✓`);
-    alert2('저장 완료',`${LEAD_TEAM} 팀원 명단 ${members.length}명이 서버에 저장되었습니다.`);
-  }catch(e){ setSyncStatus('err','명단 저장 실패'); }
+    // GET 방식으로 전송 (members를 JSON 문자열로)
+    const q = `action=saveRoster&team=${encodeURIComponent(LEAD_TEAM)}&members=${encodeURIComponent(JSON.stringify(members))}`;
+    const r = await fetch(`${SCRIPT_URL}?${q}`);
+    const txt = await r.text();
+    let res;
+    try{ res = JSON.parse(txt); }catch(e){ res = {ok:true}; }
+    if(res.ok){
+      // 로컬에도 저장
+      LS.setItem('tbm_roster', JSON.stringify(ROSTER));
+      setSyncStatus('ok',`명단 ${members.length}명 서버 저장 완료 ✓`);
+      alert2('저장 완료',`${LEAD_TEAM} 팀원 명단 ${members.length}명이 서버에 저장되었습니다.\n\nQR 스캔 시 팀원 명단이 자동으로 표시됩니다.`);
+    }else{
+      setSyncStatus('err','명단 저장 실패: '+(res.msg||''));
+      alert2('오류','서버 저장에 실패했습니다.\n'+(res.msg||''));
+    }
+  }catch(e){
+    setSyncStatus('err','명단 저장 실패');
+    alert2('오류','서버 연결 실패: '+e.message);
+  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1034,16 +1050,38 @@ function _renderStatus(){
 // 팀원 흐름
 // ══════════════════════════════════════════════════════════
 async function fetchRoster(team){
-  document.getElementById('m-roster-loading').style.display = 'block';
-  document.getElementById('m-roster-area').style.display    = 'none';
+  const loadEl = document.getElementById('m-roster-loading');
+  const areaEl = document.getElementById('m-roster-area');
+  loadEl.style.display = 'block';
+  areaEl.style.display = 'none';
+
+  // 1) 로컬 캐시에 이미 있으면 즉시 표시
+  if(ROSTER[team] && ROSTER[team].length){
+    showRosterGrid(team);
+    loadEl.style.display = 'none';
+  }
+
+  // 2) 서버에서 최신 명단 불러오기
   try{
-    const r = await apiGet({action:'getRoster', team});
+    const r = await apiGet({action:'getRoster', team: team.trim()});
     if(r.ok && r.members && r.members.length){
       ROSTER[team] = r.members;
+      LS.setItem('tbm_roster', JSON.stringify(ROSTER));
       showRosterGrid(team);
+      loadEl.style.display = 'none';
+      return;
     }
-  }catch(e){}
-  document.getElementById('m-roster-loading').style.display = 'none';
+  }catch(e){
+    console.warn('fetchRoster 서버 오류:', e);
+  }
+
+  // 3) 서버 실패 시 로컬 캐시로 재시도
+  if(ROSTER[team] && ROSTER[team].length){
+    showRosterGrid(team);
+  } else {
+    areaEl.style.display = 'none';
+  }
+  loadEl.style.display = 'none';
 }
 
 function showRosterGrid(team){
@@ -1052,10 +1090,12 @@ function showRosterGrid(team){
   const roster = ROSTER[team]||[];
   if(!roster.length){ area.style.display='none'; return; }
   area.style.display = 'block';
+  // 2열 그리드로 변경 (이름 잘림 방지)
+  grid.style.gridTemplateColumns = '1fr 1fr';
   grid.innerHTML = roster.map(m=>`
-    <button class="sel-btn" type="button" onclick="pickMember('${m.name}','${m.rank}')">
-      <span style="display:block;font-size:13px;">${m.name}</span>
-      <span style="display:block;font-size:10px;color:var(--sub);font-weight:400;">${m.rank}</span>
+    <button class="sel-btn" type="button" onclick="pickMember('${m.name.replace(/'/g,"\\'")}','${m.rank.replace(/'/g,"\\'")}')">
+      <span style="display:block;font-size:14px;font-weight:700;">${m.name}</span>
+      <span style="display:block;font-size:11px;color:var(--sub);font-weight:400;margin-top:2px;">${m.rank}</span>
     </button>`).join('');
 }
 
@@ -1513,11 +1553,28 @@ function handleUrl(){
     const team=p.get('team');
     if(team){
       mState.team=team;
+      // buildGrids가 완료된 후 실행 (타임아웃 넉넉히)
       setTimeout(()=>{
+        let found=false;
         document.querySelectorAll('#m-team-grid .sel-btn').forEach(b=>{
-          if(b.textContent===team){ b.classList.add('on'); fetchRoster(team); }
+          if(b.textContent.trim()===team.trim()){
+            b.classList.add('on');
+            found=true;
+            fetchRoster(team.trim());
+          }
         });
-      },300);
+        // 버튼이 아직 없으면 한 번 더 시도
+        if(!found){
+          setTimeout(()=>{
+            document.querySelectorAll('#m-team-grid .sel-btn').forEach(b=>{
+              if(b.textContent.trim()===team.trim()){
+                b.classList.add('on');
+                fetchRoster(team.trim());
+              }
+            });
+          },500);
+        }
+      },400);
     }
   }
 }
