@@ -874,9 +874,9 @@ function buildQR(){
   const box = document.getElementById('qr-box');
   box.innerHTML = '';
   // ★ GitHub Pages URL (file:// 아닌 실제 배포 URL 사용)
-  const pageUrl = window.location.href.startsWith('file://')
-    ? `${SCRIPT_URL}?screen=member&team=${encodeURIComponent(LEAD_TEAM)}`
-    : `${window.location.origin}${window.location.pathname}?screen=member&team=${encodeURIComponent(LEAD_TEAM)}`;
+  // GitHub Pages 고정 URL
+  const GITHUB_URL = 'https://izzim7-svg.github.io/Cbt_gas/TBM.html';
+  const pageUrl = `${GITHUB_URL}?screen=member&team=${encodeURIComponent(LEAD_TEAM)}`;
   document.getElementById('qr-url').value = pageUrl;
   document.getElementById('qr-label').textContent = `${LEAD_TEAM} — ${TBM?TBM.date:'오늘'}`;
   try{
