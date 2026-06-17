@@ -973,28 +973,26 @@ function copyUrl(){
 // ══════════════════════════════════════════════════════════
 // 서명 현황 - Firebase 실시간 리스너
 // ══════════════════════════════════════════════════════════
-function startStatusListener(){
+async function startStatusListener(){
   dbUnlisten(statusListener);
-  // TBM 날짜 우선, 없으면 서버에서 최신 날짜 조회
+  // 팀의 최신 TBM 날짜 기준으로 서명 조회
   let date = TBM?TBM.date:todayStr();
-  if(!TBM || !TBM.date){
-    try{
-      const tbmList = await dbGet('tbm/'+team);
-      if(tbmList){
-        const dates = Object.values(tbmList).filter(Boolean)
-          .map(function(t){ return t.date||''; }).filter(Boolean).sort();
-        if(dates.length>0) date = dates[dates.length-1];
-      }
-    }catch(e2){}
-  }
-  const path=`sigs/${LEAD_TEAM}/${dbKey(date)}`;
-  statusListener=dbListen(path, data=>{
-    SIGS=data ? Object.values(data).filter(Boolean) : [];
+  try{
+    const tbmList = await dbGet('tbm/'+LEAD_TEAM);
+    if(tbmList){
+      const dates = Object.values(tbmList).filter(Boolean)
+        .map(function(t){ return t.date||''; }).filter(Boolean).sort();
+      if(dates.length>0) date = dates[dates.length-1];
+    }
+  }catch(e2){}
+  const path = 'sigs/'+LEAD_TEAM+'/'+dbKey(date);
+  statusListener=dbListen(path, function(data){
+    SIGS = data ? Object.values(data).filter(Boolean) : [];
     renderStatus();
   });
 }
 
-function refreshStatus(){
+async function refreshStatus(){
   startStatusListener();
   setSS('ok','현황 업데이트 중...');
 }
