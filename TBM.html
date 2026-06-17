@@ -975,7 +975,18 @@ function copyUrl(){
 // ══════════════════════════════════════════════════════════
 function startStatusListener(){
   dbUnlisten(statusListener);
-  const date=TBM?TBM.date:todayStr();
+  // TBM 날짜 우선, 없으면 서버에서 최신 날짜 조회
+  let date = TBM?TBM.date:todayStr();
+  if(!TBM || !TBM.date){
+    try{
+      const tbmList = await dbGet('tbm/'+team);
+      if(tbmList){
+        const dates = Object.values(tbmList).filter(Boolean)
+          .map(function(t){ return t.date||''; }).filter(Boolean).sort();
+        if(dates.length>0) date = dates[dates.length-1];
+      }
+    }catch(e2){}
+  }
   const path=`sigs/${LEAD_TEAM}/${dbKey(date)}`;
   statusListener=dbListen(path, data=>{
     SIGS=data ? Object.values(data).filter(Boolean) : [];
@@ -990,7 +1001,18 @@ function refreshStatus(){
 
 function renderStatus(){
   const roster=ROSTER[LEAD_TEAM]||[];
-  const date=TBM?TBM.date:todayStr();
+  // TBM 날짜 우선, 없으면 서버에서 최신 날짜 조회
+  let date = TBM?TBM.date:todayStr();
+  if(!TBM || !TBM.date){
+    try{
+      const tbmList = await dbGet('tbm/'+team);
+      if(tbmList){
+        const dates = Object.values(tbmList).filter(Boolean)
+          .map(function(t){ return t.date||''; }).filter(Boolean).sort();
+        if(dates.length>0) date = dates[dates.length-1];
+      }
+    }catch(e2){}
+  }
   const signed=new Set(SIGS.map(s=>s.name));
   const total=roster.length;
   const done=roster.filter(m=>signed.has(m.name)).length;
@@ -1226,7 +1248,18 @@ async function submitSig(){
   const sigImg=cv.toDataURL('image/png');
   const now=new Date();
   const time=now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-  const date=TBM?TBM.date:todayStr();
+  // TBM 날짜 우선, 없으면 서버에서 최신 날짜 조회
+  let date = TBM?TBM.date:todayStr();
+  if(!TBM || !TBM.date){
+    try{
+      const tbmList = await dbGet('tbm/'+team);
+      if(tbmList){
+        const dates = Object.values(tbmList).filter(Boolean)
+          .map(function(t){ return t.date||''; }).filter(Boolean).sort();
+        if(dates.length>0) date = dates[dates.length-1];
+      }
+    }catch(e2){}
+  }
 
   const record={
     name:mState.name, team:mState.team, rank:mState.rank,
@@ -1278,12 +1311,35 @@ async function submitSig(){
 // ══════════════════════════════════════════════════════════
 async function genPDF(teamOverride){
   const team=teamOverride||LEAD_TEAM;
-  const date=TBM?TBM.date:todayStr();
+  // TBM 날짜 우선, 없으면 서버에서 최신 날짜 조회
+  let date = TBM?TBM.date:todayStr();
+  if(!TBM || !TBM.date){
+    try{
+      const tbmList = await dbGet('tbm/'+team);
+      if(tbmList){
+        const dates = Object.values(tbmList).filter(Boolean)
+          .map(function(t){ return t.date||''; }).filter(Boolean).sort();
+        if(dates.length>0) date = dates[dates.length-1];
+      }
+    }catch(e2){}
+  }
   let sigs=SIGS.filter(s=>s.team===team&&s.date===date);
 
-  setSS('ing','서명 데이터 확인 중...');
+  setSS('ing','서버에서 데이터 불러오는 중...');
+
+  // ① TBM 내용 서버에서 불러오기 (공란 방지)
+  let tbm = TBM||{};
   try{
-    const data=await dbGet(`sigs/${team}/${dbKey(date)}`);
+    const tbmData = await dbGet('tbm/'+team+'/'+dbKey(date));
+    if(tbmData && tbmData.work){
+      tbm = tbmData;
+      TBM = tbmData; // 메모리에도 갱신
+    }
+  }catch(e){ console.warn('TBM 서버 로드 실패, 로컬 사용'); }
+
+  // ② 서명 데이터 서버에서 불러오기
+  try{
+    const data = await dbGet('sigs/'+team+'/'+dbKey(date));
     if(data){
       const serverSigs=Object.values(data).filter(Boolean);
       const serverNames=new Set(serverSigs.map(s=>s.name));
@@ -1291,9 +1347,7 @@ async function genPDF(teamOverride){
       sigs=[...serverSigs,...localOnly];
     }
     setSS('ok','PDF 생성 중...');
-  }catch(e){ setSS('ok','로컬 서명으로 PDF 생성'); }
-
-  const tbm=TBM||{};
+  }catch(e){ setSS('ok','로컬 데이터로 PDF 생성'); }
   const company=CFG.company||'';
   const supervisor=tbm.supervisor||CFG.supervisor||'-';
   const roster=ROSTER[team]||[];
@@ -1600,30 +1654,43 @@ function dTab(n){
 
 async function loadDashStatus(){
   const today = todayStr();
-  document.getElementById('dash-date-info').textContent=`기준일: ${today}`;
+  document.getElementById('dash-date-info').textContent='기준일: '+today+' (팀별 최신 TBM 날짜 기준)';
   const teamList = document.getElementById('dash-team-list');
   teamList.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span> 불러오는 중...</p>';
 
-  // 기존 리스너 해제
-  Object.values(DASH_LISTENERS).forEach(ref=>{ if(ref) ref.off(); });
+  Object.values(DASH_LISTENERS).forEach(function(ref){ if(ref) ref.off(); });
   DASH_LISTENERS={};
 
-  let teamData = {}; // {팀명: {roster:[], sigs:[]}}
-  let loaded = 0;
-  const total = CFG.teams.length;
+  let teamData = {};
 
-  // 각 팀 TBM 존재여부 + 서명 현황 병렬 로드
-  await Promise.all(CFG.teams.map(async team=>{
+  // 각 팀: TBM 날짜 먼저 조회 → 그 날짜로 서명 조회
+  await Promise.all(CFG.teams.map(async function(team){
     try{
-      const [rosterData, sigsData] = await Promise.all([
-        dbGet(`roster/${team}`),
-        dbGet(`sigs/${team}/${dbKey(today)}`)
-      ]);
+      const rosterData = await dbGet('roster/'+team);
       const roster = rosterData ? Object.values(rosterData).filter(Boolean) : [];
-      const sigs   = sigsData   ? Object.values(sigsData).filter(Boolean)   : [];
-      teamData[team] = {roster, sigs};
-    }catch(e){ teamData[team]={roster:[],sigs:[]}; }
-    loaded++;
+
+      // 팀 TBM 목록에서 가장 최신 날짜 찾기
+      let sigDate = today;
+      try{
+        const tbmList = await dbGet('tbm/'+team);
+        if(tbmList){
+          const dates = Object.values(tbmList)
+            .filter(Boolean)
+            .map(function(t){ return t.date || ''; })
+            .filter(Boolean)
+            .sort();
+          if(dates.length > 0){
+            sigDate = dates[dates.length-1]; // 가장 최신 날짜
+          }
+        }
+      }catch(e2){}
+
+      const sigsData = await dbGet('sigs/'+team+'/'+dbKey(sigDate));
+      const sigs = sigsData ? Object.values(sigsData).filter(Boolean) : [];
+      teamData[team] = {roster, sigs, sigDate};
+    }catch(e){
+      teamData[team]={roster:[],sigs:[],sigDate:today};
+    }
   }));
 
   renderDashStatus(teamData, today);
@@ -1656,6 +1723,7 @@ function renderDashStatus(teamData, today){
 
     const pctText = total>0 ? pct+'%' : '-';
     const cntText = total>0 ? done+'/'+total : '-';
+    const dateInfo = d.sigDate && d.sigDate!==today ? ' ('+d.sigDate+')' : '';
     rowsHtml += '<div class="dash-team-row">'
       + '<div class="dash-team-name">' + team + '</div>'
       + '<div class="dash-prog-wrap">'
@@ -1736,10 +1804,11 @@ async function loadHistDetail(team, date){
   title.textContent = team + ' - ' + date;
   content.innerHTML='<span class="spin"></span> 불러오는 중...';
 
+  // 날짜 키 확인 로그
   try{
     const [tbmData, sigsData] = await Promise.all([
-      dbGet(`tbm/${team}/${dbKey(date)}`),
-      dbGet(`sigs/${team}/${dbKey(date)}`)
+      dbGet('tbm/'+team+'/'+dbKey(date)),
+      dbGet('sigs/'+team+'/'+dbKey(date))
     ]);
     HIST_TBM  = tbmData||{};
     HIST_SIGS = sigsData ? Object.values(sigsData).filter(Boolean) : [];
