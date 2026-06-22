@@ -1,0 +1,1635 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#1e40af">
+<title>TBM 안전교육 시스템</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-database-compat.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+:root{
+  --pr:#1e40af;--prl:#dbeafe;--ac:#2563eb;
+  --gr:#16a34a;--grb:#dcfce7;--rd:#dc2626;--rdb:#fee2e2;
+  --or:#ea580c;--orb:#ffedd5;--gy:#6b7280;--gyb:#f3f4f6;
+  --bd:#e5e7eb;--tx:#111827;--sub:#6b7280;--pur:#7c3aed;--purb:#ede9fe;
+}
+html{height:-webkit-fill-available;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f4ff;color:var(--tx);min-height:100vh;min-height:-webkit-fill-available;min-height:100dvh;}
+.screen{display:none;min-height:100vh;min-height:100dvh;padding-bottom:calc(60px + env(safe-area-inset-bottom));}
+.screen.active{display:block;}
+.top-bar{background:var(--pr);color:#fff;padding:13px 16px;padding-top:calc(13px + env(safe-area-inset-top));display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.top-bar h1{font-size:16px;font-weight:700;flex:1;}
+.badge{background:rgba(255,255,255,.22);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600;}
+.card{background:#fff;border-radius:14px;padding:16px;margin:12px;box-shadow:0 1px 5px rgba(0,0,0,.07);}
+.card-title{font-size:13px;font-weight:700;color:var(--pr);margin-bottom:10px;}
+.btn{display:block;width:100%;padding:14px;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;touch-action:manipulation;transition:opacity .12s;}
+.btn:active{opacity:.72;}
+.btn-pr{background:var(--pr);color:#fff;}.btn-gr{background:var(--gr);color:#fff;}
+.btn-ol{background:#fff;color:var(--pr);border:2px solid var(--pr);}.btn-gy{background:var(--gyb);color:var(--tx);}
+.btn-or{background:var(--or);color:#fff;}.btn-pur{background:var(--pur);color:#fff;}
+.btn-rd{background:var(--rd);color:#fff;}
+.btn-sm{padding:9px 14px;font-size:13px;border-radius:8px;}
+input[type=text],input[type=date],input[type=password],input[type=time],textarea,select{
+  width:100%;padding:12px 14px;border:1.5px solid var(--bd);border-radius:9px;
+  font-size:16px;font-family:inherit;background:#fff;color:var(--tx);
+  -webkit-appearance:none;appearance:none;}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--ac);}
+textarea{resize:vertical;min-height:72px;line-height:1.6;font-size:15px;}
+label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-bottom:5px;}
+.field{margin-bottom:12px;}
+.chip{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+.chip-bl{background:var(--prl);color:var(--pr);}.chip-gr{background:var(--grb);color:var(--gr);}
+.chip-rd{background:var(--rdb);color:var(--rd);}.chip-or{background:var(--orb);color:var(--or);}
+.chip-pur{background:var(--purb);color:var(--pur);}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;}
+.sel-btn{padding:10px 6px;border:1.5px solid var(--bd);border-radius:8px;background:#fff;font-size:14px;font-weight:600;cursor:pointer;touch-action:manipulation;text-align:center;width:100%;}
+.sel-btn.on{background:var(--pr);color:#fff;border-color:var(--pr);}
+/* 진행바 */
+.prog-wrap{background:var(--gyb);border-radius:20px;height:10px;overflow:hidden;margin:6px 0;}
+.prog-bar{height:100%;background:linear-gradient(90deg,var(--gr),#22c55e);border-radius:20px;transition:width .4s;}
+/* 서명 패드 */
+.sig-pad-wrap{border:2px dashed var(--bd);border-radius:12px;background:#fff;position:relative;margin-top:8px;overflow:hidden;}
+.sig-pad-wrap canvas{display:block;touch-action:none;width:100%;cursor:crosshair;}
+.sig-clear-btn{position:absolute;top:8px;right:8px;background:var(--rdb);color:var(--rd);border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;z-index:10;}
+.sig-guide-txt{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:13px;color:#ccc;pointer-events:none;white-space:nowrap;}
+/* TBM 섹션 */
+.tbm-sec{background:var(--gyb);border-radius:9px;padding:12px;margin-bottom:9px;}
+.tbm-sec h4{font-size:12px;font-weight:700;color:var(--pr);margin-bottom:5px;}
+.tbm-sec p{font-size:14px;line-height:1.6;white-space:pre-wrap;}
+/* 체크박스 */
+.chk-item{display:flex;align-items:flex-start;gap:10px;padding:12px 0;border-bottom:1px solid var(--bd);}
+.chk-item:last-child{border-bottom:none;}
+.chk-item input{width:22px;height:22px;cursor:pointer;accent-color:var(--pr);flex-shrink:0;margin-top:2px;}
+.chk-item label{font-size:14px;line-height:1.5;cursor:pointer;}
+/* 팀원 목록 */
+.member-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--bd);}
+.member-row:last-child{border-bottom:none;}
+.m-check{width:24px;height:24px;border-radius:50%;border:2px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.m-check.done{background:var(--gr);border-color:var(--gr);color:#fff;}
+.m-info{flex:1;}.m-name{font-size:14px;font-weight:700;}.m-meta{font-size:11px;color:var(--sub);}
+.m-sig{height:36px;max-width:100px;border:1px solid var(--bd);border-radius:4px;object-fit:contain;}
+/* 홈 */
+.home-hero{background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:calc(28px + env(safe-area-inset-top)) 20px 22px;text-align:center;}
+.home-hero h2{font-size:22px;font-weight:800;margin-bottom:4px;}
+.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px;}
+.role-card{background:#fff;border-radius:14px;padding:20px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.09);cursor:pointer;touch-action:manipulation;border:2px solid var(--bd);transition:transform .12s;}
+.role-card:active{transform:scale(.96);}
+.role-card .ic{font-size:32px;margin-bottom:8px;}
+.role-card h3{font-size:14px;font-weight:700;color:var(--pr);}
+.role-card p{font-size:11px;color:var(--sub);margin-top:3px;line-height:1.4;}
+.role-card.lc{border-color:var(--pur);}
+.role-card.mc{border-color:var(--gr);}
+.role-card.dc{border-color:var(--rd);}
+/* 연결 상태 */
+.sync-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:12px;font-weight:600;background:#fff;border-bottom:1px solid var(--bd);}
+.sync-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.s-ok{background:var(--gr);}.s-err{background:var(--rd);}.s-ing{background:var(--or);animation:pulse .8s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+/* 단계바 */
+.step-bar{display:flex;background:#fff;border-bottom:1px solid var(--bd);padding:10px 16px;position:sticky;top:calc(50px + env(safe-area-inset-top));z-index:90;}
+.step-item{flex:1;text-align:center;font-size:10px;font-weight:600;color:var(--sub);}
+.step-item.on{color:var(--pr);}.step-item.done{color:var(--gr);}
+.step-num{width:22px;height:22px;border-radius:50%;border:2px solid var(--bd);background:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin:0 auto 3px;color:var(--sub);}
+.step-item.on .step-num{background:var(--pr);border-color:var(--pr);color:#fff;}
+.step-item.done .step-num{background:var(--gr);border-color:var(--gr);color:#fff;}
+/* 팝업 */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:center;justify-content:center;padding:16px;}
+.overlay.open{display:flex;}
+.popup{background:#fff;border-radius:16px;padding:22px;width:100%;max-width:360px;max-height:88vh;overflow-y:auto;}
+.popup h3{font-size:15px;font-weight:700;margin-bottom:12px;}
+/* 완료 */
+.done-wrap{text-align:center;padding:40px 20px;}
+.done-wrap .d-icon{font-size:64px;margin-bottom:14px;}
+/* 로딩 */
+.spin{display:inline-block;width:18px;height:18px;border:2px solid var(--bd);border-top-color:var(--pr);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:5px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes slideDown{from{transform:translateY(-100%);opacity:0;}to{transform:translateY(0);opacity:1;}}
+@keyframes shake{0%,100%{transform:translateX(0);}20%,60%{transform:translateX(-6px);}40%,80%{transform:translateX(6px);}}
+/* 완료 배너 */
+.done-banner{background:linear-gradient(135deg,var(--gr),#15803d);color:#fff;border-radius:12px;padding:16px;margin:12px;text-align:center;}
+/* 팀원 체크 선택 */
+.mem-pick{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bd);cursor:pointer;touch-action:manipulation;}
+.mem-pick:last-child{border-bottom:none;}
+.mem-pick input[type=checkbox]{width:22px;height:22px;accent-color:var(--pr);flex-shrink:0;}
+.mem-pick-info{flex:1;}
+.mem-pick-name{font-size:14px;font-weight:700;}
+.mem-pick-rank{font-size:11px;color:var(--sub);}
+/* 대시보드 */
+.dash-team-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--bd);}
+.dash-team-row:last-child{border-bottom:none;}
+.dash-team-name{font-size:13px;font-weight:700;width:48px;flex-shrink:0;}
+.dash-prog-wrap{flex:1;background:var(--gyb);border-radius:20px;height:8px;overflow:hidden;}
+.dash-prog-bar{height:100%;border-radius:20px;transition:width .4s;}
+.dash-pct{font-size:12px;font-weight:700;width:36px;text-align:right;flex-shrink:0;}
+/* 탭바 */
+.tab-bar2{display:flex;background:#fff;border-bottom:1px solid var(--bd);}
+.tab2{flex:1;padding:11px 4px;text-align:center;font-size:12px;font-weight:600;color:var(--sub);cursor:pointer;border-bottom:3px solid transparent;touch-action:manipulation;}
+.tab2.on{color:var(--pr);border-color:var(--pr);}
+/* 이력 */
+.hist-row{padding:12px 0;border-bottom:1px solid var(--bd);cursor:pointer;touch-action:manipulation;}
+.hist-row:last-child{border-bottom:none;}
+.hist-date{font-size:14px;font-weight:700;color:var(--pr);}
+.hist-info{font-size:12px;color:var(--sub);margin-top:3px;}
+/* 사인인 화면 */
+.signin-wrap{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;background:linear-gradient(160deg,#1e3a8a,#2563eb,#0891b2);padding:20px;}
+.signin-card{background:#fff;border-radius:20px;padding:28px 20px;box-shadow:0 8px 32px rgba(0,0,0,.2);}
+.signin-logo{font-size:48px;text-align:center;margin-bottom:8px;}
+.signin-title{font-size:20px;font-weight:800;text-align:center;color:var(--pr);margin-bottom:4px;}
+.signin-sub{font-size:12px;text-align:center;color:var(--sub);margin-bottom:22px;}
+.tab-switch{display:flex;background:var(--gyb);border-radius:10px;padding:3px;margin-bottom:18px;}
+.tab-sw-btn{flex:1;padding:9px;text-align:center;font-size:13px;font-weight:700;border:none;background:transparent;border-radius:8px;cursor:pointer;color:var(--sub);touch-action:manipulation;}
+.tab-sw-btn.on{background:#fff;color:var(--pr);box-shadow:0 1px 4px rgba(0,0,0,.1);}
+/* 팀원 배정 선택 */
+.assign-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd);}
+.assign-item:last-child{border-bottom:none;}
+.assign-item input[type=checkbox]{width:20px;height:20px;accent-color:var(--pr);}
+/* 서명 미리보기 */
+.sig-preview{border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-top:10px;}
+.sig-preview-label{background:var(--gyb);padding:5px 10px;font-size:11px;color:var(--sub);font-weight:600;}
+</style>
+</head>
+<body>
+
+<!-- ══ 로그인/가입 화면 ══ -->
+<div id="signin" class="screen active" style="padding-bottom:0;">
+  <div class="signin-wrap">
+    <div class="signin-card">
+      <div class="signin-logo">🦺</div>
+      <div class="signin-title">TBM 안전교육</div>
+      <div class="signin-sub">Tool Box Meeting 교육·서명 관리 시스템</div>
+
+      <div class="tab-switch">
+        <button class="tab-sw-btn on" id="sw-login" onclick="switchSignin('login')">로그인</button>
+        <button class="tab-sw-btn" id="sw-join" onclick="switchSignin('join')">첫 가입</button>
+      </div>
+
+      <!-- 로그인 -->
+      <div id="login-form">
+        <div class="field"><label>이름</label><input type="text" id="li-name" placeholder="홍길동" maxlength="10" autocomplete="name"></div>
+        <div class="field"><label>비밀번호</label><input type="password" id="li-pw" placeholder="본인 비밀번호" autocomplete="current-password"></div>
+        <button class="btn btn-pr" onclick="doLogin()" style="margin-top:4px;">로그인</button>
+        <div id="login-err" style="display:none;background:var(--rdb);color:var(--rd);border-radius:8px;padding:10px;font-size:13px;margin-top:10px;text-align:center;"></div>
+      </div>
+
+      <!-- 가입 -->
+      <div id="join-form" style="display:none;">
+        <div class="field"><label>이름</label><input type="text" id="jo-name" placeholder="홍길동" maxlength="10" autocomplete="name"></div>
+        <div class="field">
+          <label>소속 팀</label>
+          <div class="row3" id="jo-team-grid" style="margin-top:4px;gap:6px;"></div>
+        </div>
+        <div class="field"><label>직책</label><select id="jo-rank"></select></div>
+        <div class="field"><label>비밀번호 설정</label><input type="password" id="jo-pw" placeholder="4자 이상" autocomplete="new-password"></div>
+        <div class="field"><label>비밀번호 확인</label><input type="password" id="jo-pw2" placeholder="다시 입력" autocomplete="new-password"></div>
+        <button class="btn btn-gr" onclick="doJoin()" style="margin-top:4px;">가입하기</button>
+        <div id="join-err" style="display:none;background:var(--rdb);color:var(--rd);border-radius:8px;padding:10px;font-size:13px;margin-top:10px;text-align:center;"></div>
+      </div>
+    </div>
+    <div style="text-align:center;color:rgba(255,255,255,.5);font-size:11px;margin-top:14px;">산업안전보건법 제29조 TBM 교육 이행 기록</div>
+  </div>
+</div>
+
+<!-- ══ 홈 ══ -->
+<div id="home" class="screen">
+  <div class="home-hero">
+    <div style="font-size:36px;margin-bottom:4px;">🦺</div>
+    <h2>TBM 안전교육</h2>
+    <div id="home-user-info" style="margin-top:6px;font-size:13px;opacity:.9;font-weight:600;"></div>
+    <div id="home-date" style="margin-top:3px;font-size:11px;opacity:.7;"></div>
+  </div>
+  <!-- 알림 배너 (새 TBM 등록 시 표시) -->
+  <div id="notif-banner" style="display:none;background:#1e40af;color:#fff;padding:14px 16px;cursor:pointer;touch-action:manipulation;animation:slideDown .3s ease;" onclick="goMember()">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-size:24px;">🔔</span>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:800;" id="notif-title">새 TBM이 등록되었습니다</div>
+        <div style="font-size:12px;opacity:.85;margin-top:2px;" id="notif-body">탭하여 교육 내용 확인 및 서명하기</div>
+      </div>
+      <button onclick="event.stopPropagation();closeNotifBanner();" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>
+    </div>
+  </div>
+  <!-- 팀원 전용: 오늘 내 TBM 바로 가기 -->
+  <div id="quick-sign-bar" style="display:none;background:var(--grb);border-left:4px solid var(--gr);padding:10px 14px;margin:8px 12px;border-radius:8px;cursor:pointer;touch-action:manipulation;" onclick="goMember()">
+    <div style="font-size:13px;font-weight:700;color:var(--gr);">✍️ 오늘의 TBM 서명하기</div>
+    <div style="font-size:11px;color:var(--sub);margin-top:2px;">배정된 교육 내용 확인 및 서명</div>
+  </div>
+  <div class="sync-bar">
+    <div class="sync-dot s-ing" id="sync-dot"></div>
+    <span id="sync-msg">서버 연결 확인 중...</span>
+    <button onclick="checkConn()" style="margin-left:auto;background:none;border:none;color:var(--pr);font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation;">🔄</button>
+  </div>
+  <!-- 역할별 메뉴 -->
+  <div id="home-menus"></div>
+</div>
+
+<!-- ══ 팀장/TBM 진행자 ══ -->
+<div id="lead" class="screen">
+  <div class="top-bar">
+    <button onclick="go('home')" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;touch-action:manipulation;">←</button>
+    <h1>TBM 작성 · 관리</h1>
+    <span class="badge" id="lead-badge">-</span>
+  </div>
+  <div class="step-bar">
+    <div class="step-item on" id="ls0"><div class="step-num">1</div>TBM작성</div>
+    <div class="step-item" id="ls1"><div class="step-num">2</div>참여자선택</div>
+    <div class="step-item" id="ls2"><div class="step-num">3</div>현황·PDF</div>
+  </div>
+
+  <!-- STEP1: TBM 작성 -->
+  <div id="lc0">
+    <div class="card">
+      <div class="card-title">📅 기본 정보</div>
+      <div class="row2">
+        <div class="field"><label>날짜</label><input type="date" id="t-date"></div>
+        <div class="field"><label>시간</label><input type="time" id="t-time"></div>
+      </div>
+      <div class="field"><label>작업 장소</label><input type="text" id="t-loc" placeholder="예) 2공장 3층 배관구역"></div>
+      <div class="field"><label>작업 내용</label><input type="text" id="t-work" placeholder="예) 배관 교체 작업"></div>
+      <div class="field">
+        <label>TBM 교육담당자 <span class="chip chip-bl">자동입력</span></label>
+        <input type="text" id="t-lead" readonly style="background:var(--gyb);color:var(--gr);font-weight:600;">
+      </div>
+      <div class="field">
+        <label>관리감독자 <span class="chip chip-bl">설정 자동입력</span></label>
+        <input type="text" id="t-supervisor" readonly style="background:var(--gyb);color:var(--gr);font-weight:600;">
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">⚠️ 위험 요인</div>
+      <textarea id="t-danger" placeholder="• 추락 위험&#10;• 감전 위험&#10;• 협착 위험"></textarea>
+    </div>
+    <div class="card">
+      <div class="card-title">✅ 안전 수칙</div>
+      <textarea id="t-safety" placeholder="• 안전대 착용&#10;• 절연장갑 착용&#10;• 접근 금지"></textarea>
+    </div>
+    <div class="card">
+      <div class="card-title">🦺 보호구</div>
+      <textarea id="t-ppe" rows="2" placeholder="안전모, 안전화, 안전대"></textarea>
+    </div>
+    <div class="card">
+      <div class="card-title">📝 특이사항</div>
+      <textarea id="t-note" rows="2" placeholder=""></textarea>
+    </div>
+    <div style="padding:0 12px 8px;display:flex;gap:8px;">
+      <button class="btn btn-gr" onclick="saveTBM()" style="flex:2;">☁️ TBM 저장 → 참여자 선택</button>
+      <button class="btn btn-gy" onclick="loadTBM()" style="flex:1;font-size:12px;">🔄 불러오기</button>
+    </div>
+  </div>
+
+  <!-- STEP2: 참여자 선택 (가입된 팀원 중 선택) -->
+  <div id="lc1" style="display:none;">
+    <div class="card" id="tbm-summary-card">
+      <div class="card-title">📋 저장된 TBM</div>
+      <div id="tbm-summary"></div>
+      <button class="btn btn-gy btn-sm" onclick="lStep(0)" style="margin-top:8px;">← TBM 수정</button>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="card-title" style="margin:0;">👥 참여자 선택 <span id="assign-count" class="chip chip-bl">0명</span></div>
+        <button class="btn btn-gy btn-sm" onclick="selectAllMembers()" style="width:auto;">전체 선택</button>
+      </div>
+      <div id="assign-list"><p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>팀원 불러오는 중...</p></div>
+    </div>
+    <div style="padding:0 12px 8px;">
+      <button class="btn btn-gr" onclick="saveAssignment()">✅ 참여자 확정 → QR 공유</button>
+    </div>
+  </div>
+
+  <!-- STEP3: 현황·PDF -->
+  <div id="lc2" style="display:none;">
+    <div id="all-done-banner" style="display:none;">
+      <div class="done-banner"><h3>🎉 참여자 전원 서명 완료!</h3><p>PDF를 생성해주세요.</p></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="card-title" style="margin:0;">📊 서명 현황</div>
+        <button class="btn btn-gy btn-sm" onclick="refreshStatus()" style="width:auto;">🔄</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+        <span id="prog-text">-</span>
+        <span id="prog-pct" style="font-weight:700;color:var(--pr);">0%</span>
+      </div>
+      <div class="prog-wrap"><div class="prog-bar" id="prog-bar" style="width:0%"></div></div>
+      <div id="status-list" style="margin-top:12px;"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📄 TBM 회의일지 PDF</div>
+      <button class="btn btn-gr" onclick="genPDF()">📥 PDF 생성 및 다운로드</button>
+    </div>
+    <div style="padding:0 12px 8px;">
+      <button class="btn btn-gy btn-sm" onclick="lStep(0)">← 새 TBM 작성</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 팀원 서명 (로그인 후) ══ -->
+<div id="member" class="screen">
+  <div class="top-bar">
+    <button onclick="go('home')" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;touch-action:manipulation;">←</button>
+    <h1>TBM 교육 확인 및 서명</h1>
+    <span class="badge" id="m-badge">-</span>
+  </div>
+
+  <!-- 배정된 TBM 없을 때 -->
+  <div id="ms-none" style="display:none;">
+    <div class="card" style="margin-top:20px;text-align:center;padding:30px;">
+      <div style="font-size:40px;margin-bottom:12px;">📋</div>
+      <h3 style="color:var(--sub);font-size:15px;margin-bottom:6px;">오늘 배정된 TBM이 없습니다</h3>
+      <p style="font-size:13px;color:var(--sub);">TBM 진행자에게 문의하세요.</p>
+    </div>
+  </div>
+
+  <!-- TBM 내용 + 체크 + 서명 통합 -->
+  <div id="ms-main" style="display:none;">
+    <!-- 이미 서명 완료 배너 -->
+    <div id="already-signed-banner" style="display:none;">
+      <div class="done-banner" style="margin:12px;border-radius:12px;">
+        <h3>✅ 이미 서명 완료하셨습니다</h3>
+        <p id="already-signed-time" style="margin-top:4px;font-size:12px;opacity:.9;"></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div class="card-title" style="margin:0;">📋 오늘의 TBM 교육 내용</div>
+        <span class="chip chip-pur">☁️ 서버</span>
+      </div>
+      <div id="m-tbm-content"></div>
+    </div>
+
+    <div id="ms-sign-section">
+      <div class="card">
+        <div class="card-title">☑️ 교육 내용 확인 (모두 체크 필수)</div>
+        <div class="chk-item"><input type="checkbox" id="c1"><label for="c1">위험 요인을 확인하고 이해하였습니다.</label></div>
+        <div class="chk-item"><input type="checkbox" id="c2"><label for="c2">안전 수칙을 숙지하고 준수하겠습니다.</label></div>
+        <div class="chk-item"><input type="checkbox" id="c3"><label for="c3">보호구를 지참하고 착용하겠습니다.</label></div>
+        <div class="chk-item"><input type="checkbox" id="c4"><label for="c4">불안전 상황 발생 시 즉시 작업을 중단하겠습니다.</label></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">✍️ 전자 서명</div>
+        <div style="background:var(--gyb);border-radius:8px;padding:10px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+          <span style="font-size:20px;">👤</span>
+          <div>
+            <div style="font-weight:700;font-size:14px;" id="s-name"></div>
+            <div style="font-size:11px;color:var(--sub);" id="s-meta"></div>
+          </div>
+        </div>
+        <div class="sig-pad-wrap" id="sig-wrap">
+          <canvas id="sigCanvas" height="180"></canvas>
+          <button class="sig-clear-btn" onclick="clearSig()">지우기</button>
+          <div class="sig-guide-txt">손가락으로 서명하세요</div>
+        </div>
+        <div id="sig-preview-card" style="display:none;margin-top:10px;">
+          <div class="sig-preview">
+            <div class="sig-preview-label">서명 미리보기</div>
+            <img id="sig-preview-img" style="width:100%;display:block;" alt="서명 미리보기">
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:0 12px 8px;">
+        <button class="btn btn-gr" onclick="submitSig()">✅ 서명 제출 완료</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 서명 완료 -->
+  <div id="ms-done" style="display:none;">
+    <div class="done-wrap">
+      <div class="d-icon">✅</div>
+      <h2 style="color:var(--gr);">서명 완료!</h2>
+      <p id="done-msg" style="font-size:13px;color:var(--sub);line-height:1.7;margin-top:6px;"></p>
+      <div id="done-sig-preview" style="margin:16px auto;max-width:280px;">
+        <div class="sig-preview">
+          <div class="sig-preview-label">제출된 서명</div>
+          <img id="done-sig-img" style="width:100%;display:block;" alt="제출 서명">
+        </div>
+      </div>
+      <button class="btn btn-ol" onclick="go('home')" style="margin-top:16px;max-width:220px;margin-left:auto;margin-right:auto;">홈으로</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 관리감독자 대시보드 ══ -->
+<div id="dash" class="screen">
+  <div class="top-bar">
+    <button onclick="go('home')" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;touch-action:manipulation;">←</button>
+    <h1>관리감독자 전체 현황</h1>
+    <span class="badge">관리감독자</span>
+  </div>
+  <div class="tab-bar2">
+    <div class="tab2 on" id="dt0" onclick="dTab(0)">📊 전체 현황</div>
+    <div class="tab2" id="dt1" onclick="dTab(1)">👥 직원 관리</div>
+    <div class="tab2" id="dt2" onclick="dTab(2)">📅 TBM 이력</div>
+  </div>
+
+  <!-- 탭0: 전체 현황 -->
+  <div id="dc0">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="card-title" style="margin:0;">📊 오늘 전 팀 서명 현황</div>
+        <button class="btn btn-gy btn-sm" onclick="loadDashStatus()" style="width:auto;">🔄</button>
+      </div>
+      <div id="dash-date-info" style="font-size:12px;color:var(--sub);margin-bottom:10px;"></div>
+      <div id="dash-summary" style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+        <div style="flex:1;background:var(--prl);border-radius:10px;padding:12px;text-align:center;min-width:80px;">
+          <div style="font-size:22px;font-weight:800;color:var(--pr);" id="dash-total-teams">-</div>
+          <div style="font-size:11px;color:var(--sub);">활성 팀</div>
+        </div>
+        <div style="flex:1;background:var(--grb);border-radius:10px;padding:12px;text-align:center;min-width:80px;">
+          <div style="font-size:22px;font-weight:800;color:var(--gr);" id="dash-done-teams">-</div>
+          <div style="font-size:11px;color:var(--sub);">완료 팀</div>
+        </div>
+        <div style="flex:1;background:var(--orb);border-radius:10px;padding:12px;text-align:center;min-width:80px;">
+          <div style="font-size:22px;font-weight:800;color:var(--or);" id="dash-total-sigs">-</div>
+          <div style="font-size:11px;color:var(--sub);">총 서명자</div>
+        </div>
+      </div>
+      <div id="dash-team-list"></div>
+    </div>
+    <div class="card" id="dash-nudge-card" style="display:none;">
+      <div class="card-title">📣 미서명자 독촉 메시지</div>
+      <div id="dash-nudge-msg" style="background:var(--gyb);border-radius:8px;padding:10px;font-size:12px;line-height:1.8;white-space:pre-wrap;"></div>
+      <button class="btn btn-ol btn-sm" onclick="copyNudge()" style="margin-top:8px;">📋 복사 (카카오톡용)</button>
+    </div>
+  </div>
+
+  <!-- 탭1: 직원 관리 -->
+  <div id="dc1" style="display:none;">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="card-title" style="margin:0;">👥 가입된 직원 목록</div>
+        <button class="btn btn-gy btn-sm" onclick="loadEmployees()" style="width:auto;">🔄</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;" id="emp-filter-bar"></div>
+      <div id="emp-list"><p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>불러오는 중...</p></div>
+    </div>
+  </div>
+
+  <!-- 탭2: TBM 이력 -->
+  <div id="dc2" style="display:none;">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="card-title" style="margin:0;">📅 TBM 이력 조회</div>
+        <select id="hist-team-sel" onchange="loadHistory()" style="width:auto;padding:7px 10px;font-size:13px;">
+        </select>
+      </div>
+      <div id="hist-list"><p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">팀을 선택하면 이력이 표시됩니다.</p></div>
+    </div>
+    <div class="card" id="hist-detail-card" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="card-title" style="margin:0;" id="hist-detail-title">이력 상세</div>
+        <button class="btn btn-gr btn-sm" onclick="genPDFFromHistory()" style="width:auto;">📥 PDF</button>
+      </div>
+      <div id="hist-detail-content"></div>
+      <div id="hist-sig-list" style="margin-top:12px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 알림 팝업 -->
+<div class="overlay" id="alert-ov">
+  <div class="popup">
+    <h3 id="a-title">알림</h3>
+    <p id="a-msg" style="font-size:13px;color:var(--sub);line-height:1.6;margin-bottom:14px;white-space:pre-wrap;"></p>
+    <button class="btn btn-pr" onclick="closeAlert()">확인</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// Firebase 설정
+// ══════════════════════════════════════════════════════════
+const FB_CONFIG = {
+  apiKey:            "AIzaSyBLq1SnMAIAAUdLDJK05JPIH-t7T8KobD0",
+  authDomain:        "tbmgas-a1aa2.firebaseapp.com",
+  databaseURL:       "https://tbmgas-a1aa2-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "tbmgas-a1aa2",
+  storageBucket:     "tbmgas-a1aa2.firebasestorage.app",
+  messagingSenderId: "436767420426",
+  appId:             "1:436767420426:web:e4801a2be7d1981cba2ff3"
+};
+
+// ══════════════════════════════════════════════════════════
+// 전역 상태
+// ══════════════════════════════════════════════════════════
+const LS = localStorage;
+let DB = null;
+let CFG = {
+  company:'', supervisor:'', supervisorPw:'0000',
+  teams:['A팀','B팀','C팀','D팀','E팀','F팀','G팀','H팀','I팀','J팀'],
+  ranks:['팀원','반장','조장','팀장','안전담당']
+};
+let CUR = null; // 현재 로그인 사용자 {name, team, rank, role}
+let TBM = null;
+let SIGS = [];
+let ASSIGNED = []; // 이번 TBM 참여자 목록
+let LEAD_TEAM = '';
+let statusListener = null;
+let sigCtx, sigDrawing = false;
+let HIST_TBM = null, HIST_SIGS = [];
+
+// ══════════════════════════════════════════════════════════
+// Firebase 초기화
+// ══════════════════════════════════════════════════════════
+function initDB(){
+  if(DB) return true;
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
+    DB = firebase.database();
+    return true;
+  }catch(e){ setSS('err','Firebase 초기화 실패'); return false; }
+}
+
+function dbKey(s){ return (s||'').replace(/-/g,'').replace(/[.#$/\[\]\s]/g,'_'); }
+function safeKey(s){ return (s||'').replace(/[.#$/\[\]\s]/g,'_'); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+async function dbSet(path, data){ if(!initDB()) throw new Error('DB없음'); await DB.ref(path).set(data); }
+async function dbGet(path){ if(!initDB()) throw new Error('DB없음'); const s=await DB.ref(path).once('value'); return s.val(); }
+async function dbUpdate(path, data){ if(!initDB()) throw new Error('DB없음'); await DB.ref(path).update(data); }
+function dbListen(path, cb){ if(!initDB()) return null; const r=DB.ref(path); r.on('value',s=>cb(s.val())); return r; }
+function dbUnlisten(ref){ if(ref) ref.off(); }
+
+// ══════════════════════════════════════════════════════════
+// 초기화
+// ══════════════════════════════════════════════════════════
+window.onload = function(){
+  const now = new Date();
+  const pad = n=>String(n).padStart(2,'0');
+  if(document.getElementById('home-date'))
+    document.getElementById('home-date').textContent =
+      now.toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+  if(document.getElementById('t-date'))
+    document.getElementById('t-date').value =
+      now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+  if(document.getElementById('t-time'))
+    document.getElementById('t-time').value =
+      pad(now.getHours())+':'+pad(now.getMinutes());
+
+  // 설정 로드
+  try{ const sc=JSON.parse(LS.getItem('tbm_cfg')||'null'); if(sc) Object.assign(CFG,sc); }catch(e){}
+
+  // 가입 폼 팀/직책 그리드 빌드
+  buildSigninGrids();
+  initCanvas();
+
+  // 세션 복원 (자동 로그인)
+  const saved = LS.getItem('tbm_session');
+  if(saved){
+    try{
+      CUR = JSON.parse(saved);
+      goHome();
+      checkConn();
+      return;
+    }catch(e){ LS.removeItem('tbm_session'); }
+  }
+
+  // URL 파라미터 처리 (QR 스캔)
+  handleUrl();
+  checkConn();
+  // 앱 포그라운드 복귀 감지
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible' && CUR && CUR.role === 'member'){
+      checkUnreadTBM();
+    }
+  });
+};
+
+function buildSigninGrids(){
+  const grid = document.getElementById('jo-team-grid');
+  if(grid){
+    grid.innerHTML = '';
+    CFG.teams.forEach(function(t){
+      const b = document.createElement('button');
+      b.className='sel-btn'; b.textContent=t; b.type='button';
+      b.onclick = function(){
+        grid.querySelectorAll('.sel-btn').forEach(function(x){ x.classList.remove('on'); });
+        b.classList.add('on');
+      };
+      grid.appendChild(b);
+    });
+  }
+  const rs = document.getElementById('jo-rank');
+  if(rs) rs.innerHTML = CFG.ranks.map(function(r){ return '<option>'+r+'</option>'; }).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+// 연결 상태
+// ══════════════════════════════════════════════════════════
+function setSS(state, msg){
+  const dot=document.getElementById('sync-dot');
+  const txt=document.getElementById('sync-msg');
+  if(dot) dot.className='sync-dot '+(state==='ok'?'s-ok':state==='err'?'s-err':'s-ing');
+  if(txt) txt.textContent=msg;
+}
+
+
+// ══════════════════════════════════════════════════════════
+// 🔔 TBM 알림 시스템
+// ══════════════════════════════════════════════════════════
+let tbmNotifListener = null;
+let lastNotifKey = null; // 중복 알림 방지
+
+// 브라우저 푸시 알림 권한 요청
+function requestNotifPermission(){
+  if(!('Notification' in window)) return;
+  if(Notification.permission === 'default'){
+    Notification.requestPermission();
+  }
+}
+
+// 브라우저 알림 발송
+function sendBrowserNotif(title, body){
+  if(!('Notification' in window)) return;
+  if(Notification.permission === 'granted'){
+    const n = new Notification(title, {
+      body: body,
+      icon: 'https://izzim7-svg.github.io/Cbt_gas/TBM.html',
+      badge: 'https://izzim7-svg.github.io/Cbt_gas/TBM.html',
+      tag: 'tbm-alert',
+      requireInteraction: true // 사용자가 닫을 때까지 유지
+    });
+    n.onclick = function(){
+      window.focus();
+      goMember();
+      n.close();
+    };
+  }
+}
+
+// 인앱 알림 배너 표시
+function showNotifBanner(title, body){
+  const banner = document.getElementById('notif-banner');
+  const titleEl = document.getElementById('notif-title');
+  const bodyEl  = document.getElementById('notif-body');
+  if(!banner) return;
+  if(titleEl) titleEl.textContent = title;
+  if(bodyEl)  bodyEl.textContent  = body;
+  banner.style.display = 'block';
+  banner.style.animation = 'slideDown .3s ease';
+  // 진동 (Android)
+  if(navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  // 30초 후 자동 닫기
+  setTimeout(function(){ closeNotifBanner(); }, 30000);
+}
+
+function closeNotifBanner(){
+  const banner = document.getElementById('notif-banner');
+  if(banner) banner.style.display = 'none';
+}
+
+// TBM 실시간 감지 리스너 (팀원용)
+function startTBMWatcher(){
+  if(!CUR || CUR.role !== 'member') return;
+  if(!initDB()) return;
+
+  // 기존 리스너 해제
+  if(tbmNotifListener) tbmNotifListener.off();
+
+  const today = todayStr();
+  const path = 'tbm/' + CUR.team + '/' + dbKey(today);
+
+  tbmNotifListener = DB.ref(path);
+  tbmNotifListener.on('value', function(snap){
+    const data = snap.val();
+    if(!data) return;
+
+    // 이미 알림 받은 TBM인지 확인 (중복 방지)
+    const tbmKey = CUR.team + '_' + (data.date||today);
+    if(lastNotifKey === tbmKey) return;
+
+    // 처음 로드 시엔 알림 안 보냄 (새로 등록된 것만)
+    if(lastNotifKey === null){
+      lastNotifKey = tbmKey;
+      return;
+    }
+
+    lastNotifKey = tbmKey;
+
+    // 이미 서명했는지 확인
+    dbGet('sigs/' + CUR.team + '/' + dbKey(today) + '/' + safeKey(CUR.name))
+      .then(function(sigData){
+        if(sigData) return; // 이미 서명 완료
+
+        // 배정 확인
+        dbGet('assignments/' + CUR.team + '/' + dbKey(today))
+          .then(function(aData){
+            const assigned = aData ? Object.values(aData).filter(Boolean) : [];
+            const isAssigned = assigned.length === 0 || assigned.some(function(a){ return a.name === CUR.name; });
+            if(!isAssigned) return;
+
+            const title = '🔔 오늘의 TBM이 등록되었습니다';
+            const body = (data.work||'작업 안전교육') + ' | ' + CUR.team + ' · ' + (data.lead||'');
+
+            // 브라우저 알림 (백그라운드)
+            sendBrowserNotif(title, body);
+            // 인앱 배너 (포그라운드)
+            showNotifBanner(title, body);
+          });
+      });
+  });
+}
+
+// 앱 포그라운드 복귀 시 미서명 체크
+function checkUnreadTBM(){
+  if(!CUR || CUR.role !== 'member') return;
+  const today = todayStr();
+  Promise.all([
+    dbGet('tbm/' + CUR.team + '/' + dbKey(today)),
+    dbGet('sigs/' + CUR.team + '/' + dbKey(today) + '/' + safeKey(CUR.name)),
+    dbGet('assignments/' + CUR.team + '/' + dbKey(today))
+  ]).then(function(results){
+    const tbmData = results[0];
+    const sigData = results[1];
+    const aData   = results[2];
+    if(!tbmData) return;
+    if(sigData) return; // 이미 서명 완료
+    const assigned = aData ? Object.values(aData).filter(Boolean) : [];
+    const isAssigned = assigned.length===0 || assigned.some(function(a){ return a.name===CUR.name; });
+    if(!isAssigned) return;
+    // 미서명 상태 → 배너 표시
+    showNotifBanner(
+      '📋 미완료: TBM 서명이 필요합니다',
+      (tbmData.work||'오늘의 안전교육') + ' 내용을 확인하고 서명해주세요.'
+    );
+  }).catch(function(){});
+}
+
+function checkConn(){
+  setSS('ing','Firebase 연결 확인 중...');
+  if(!initDB()) return;
+  DB.ref('_ping').set({t:Date.now()})
+    .then(function(){ setSS('ok','Firebase 연결됨 ✓'); })
+    .catch(function(e){ setSS('err','연결 실패: '+e.message); });
+}
+
+// ══════════════════════════════════════════════════════════
+// 로그인 / 가입
+// ══════════════════════════════════════════════════════════
+function switchSignin(tab){
+  document.getElementById('login-form').style.display = tab==='login'?'block':'none';
+  document.getElementById('join-form').style.display  = tab==='join'?'block':'none';
+  document.getElementById('sw-login').classList.toggle('on', tab==='login');
+  document.getElementById('sw-join').classList.toggle('on',  tab==='join');
+  document.getElementById('login-err').style.display='none';
+  document.getElementById('join-err').style.display='none';
+}
+
+async function doLogin(){
+  const name = document.getElementById('li-name').value.trim();
+  const pw   = document.getElementById('li-pw').value;
+  const errEl = document.getElementById('login-err');
+  errEl.style.display='none';
+
+  if(!name||!pw){ showErr(errEl,'이름과 비밀번호를 입력해주세요.'); return; }
+
+  // 관리감독자 로그인
+  if(name===CFG.supervisor && pw===CFG.supervisorPw){
+    CUR = {name, team:'', rank:'관리감독자', role:'supervisor'};
+    LS.setItem('tbm_session', JSON.stringify(CUR));
+    goHome(); return;
+  }
+
+  // 일반 직원 로그인
+  setSS('ing','로그인 중...');
+  try{
+    const data = await dbGet('users/'+safeKey(name));
+    if(!data){ showErr(errEl,'가입되지 않은 이름입니다. 첫 가입을 해주세요.'); setSS('ok',''); return; }
+    if(data.pw !== pw){ showErr(errEl,'비밀번호가 틀렸습니다.'); setSS('ok',''); return; }
+    CUR = {name:data.name, team:data.team, rank:data.rank, role:data.role||'member'};
+    LS.setItem('tbm_session', JSON.stringify(CUR));
+    setSS('ok','로그인 완료 ✓');
+    goHome();
+  }catch(e){ showErr(errEl,'오류: '+e.message); setSS('err',''); }
+}
+
+async function doJoin(){
+  const name = document.getElementById('jo-name').value.trim();
+  const teamEl = document.querySelector('#jo-team-grid .sel-btn.on');
+  const rank   = document.getElementById('jo-rank').value;
+  const pw     = document.getElementById('jo-pw').value;
+  const pw2    = document.getElementById('jo-pw2').value;
+  const errEl  = document.getElementById('join-err');
+  errEl.style.display='none';
+
+  if(!name){ showErr(errEl,'이름을 입력해주세요.'); return; }
+  if(!teamEl){ showErr(errEl,'소속 팀을 선택해주세요.'); return; }
+  if(pw.length<4){ showErr(errEl,'비밀번호는 4자 이상이어야 합니다.'); return; }
+  if(pw!==pw2){ showErr(errEl,'비밀번호가 일치하지 않습니다.'); return; }
+
+  const team = teamEl.textContent.trim();
+
+  setSS('ing','가입 중...');
+  try{
+    // 중복 확인
+    const exists = await dbGet('users/'+safeKey(name));
+    if(exists){ showErr(errEl,'이미 가입된 이름입니다. 로그인해주세요.'); setSS('ok',''); return; }
+
+    const userData = {name, team, rank, pw, role:'member', joinedAt:Date.now()};
+    await dbSet('users/'+safeKey(name), userData);
+
+    CUR = {name, team, rank, role:'member'};
+    LS.setItem('tbm_session', JSON.stringify(CUR));
+    setSS('ok','가입 완료 ✓');
+    goHome();
+  }catch(e){ showErr(errEl,'오류: '+e.message); setSS('err',''); }
+}
+
+function showErr(el, msg){ el.textContent=msg; el.style.display='block'; }
+
+function logout(){
+  // 알림 리스너 해제
+  if(tbmNotifListener){ tbmNotifListener.off(); tbmNotifListener = null; }
+  if(statusListener){ dbUnlisten(statusListener); statusListener = null; }
+  lastNotifKey = null;
+  LS.removeItem('tbm_session');
+  CUR = null;
+  closeNotifBanner();
+  go('signin');
+}
+
+// ══════════════════════════════════════════════════════════
+// 화면 전환
+// ══════════════════════════════════════════════════════════
+function go(id){
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+  if(id!=='lead'){ dbUnlisten(statusListener); statusListener=null; }
+}
+
+function goHome(){
+  if(!CUR){ go('signin'); return; }
+
+  // 홈 사용자 정보 표시
+  const ui = document.getElementById('home-user-info');
+  const roleLabel = CUR.role==='supervisor'?'관리감독자':CUR.role==='lead'?'TBM 교육담당자':'팀원';
+  if(ui) ui.textContent = CUR.name + ' · ' + (CUR.team||'') + ' · ' + roleLabel;
+
+  // 역할별 메뉴 빌드
+  buildHomeMenus();
+  // 팀원 전용 기능
+  const qsb = document.getElementById('quick-sign-bar');
+  if(qsb) qsb.style.display = (CUR && CUR.role==='member') ? 'block' : 'none';
+  go('home');
+  checkConn();
+  // 알림 권한 요청 + TBM 감지 리스너 시작 (팀원만)
+  if(CUR && CUR.role === 'member'){
+    requestNotifPermission();
+    setTimeout(function(){
+      startTBMWatcher();
+      checkUnreadTBM(); // 앱 켤 때 미서명 TBM 있으면 바로 안내
+    }, 1500);
+  }
+
+
+}
+
+function buildHomeMenus(){
+  const el = document.getElementById('home-menus');
+  if(!el) return;
+
+  if(CUR.role==='supervisor'){
+    // 관리감독자
+    el.innerHTML = '<div class="role-grid" style="grid-template-columns:1fr 1fr;">'
+      + '<div class="role-card dc" onclick="goDash()">'
+      + '<div class="ic">📊</div><h3 style="color:var(--rd);">전체 현황</h3><p>전 팀 서명 현황<br>TBM 이력 · 직원 관리</p></div>'
+      + '<div class="role-card lc" onclick="goLead()">'
+      + '<div class="ic">📝</div><h3>TBM 작성</h3><p>오늘의 TBM 작성<br>참여자 지정 · QR</p></div>'
+      + '</div>'
+      + '<div class="card" style="margin-top:4px;">'
+      + '<div class="card-title">⚙️ 시스템 설정</div>'
+      + '<div class="field"><label>회사명</label><input type="text" id="cfg-company" value="'+CFG.company+'" placeholder="(주)안전건설"></div>'
+      + '<div class="field"><label>관리감독자 이름</label><input type="text" id="cfg-supervisor" value="'+CFG.supervisor+'" placeholder="홍길동 (안전팀장)"></div>'
+      + '<div class="field"><label>관리감독자 로그인 비밀번호</label><input type="password" id="cfg-sup-pw" value="'+CFG.supervisorPw+'"></div>'
+      + '<div class="field"><label>팀 목록 (쉼표 구분)</label><input type="text" id="cfg-teams" value="'+CFG.teams.join(',')+'"></div>'
+      + '<div class="field"><label>직책 목록 (쉼표 구분)</label><input type="text" id="cfg-ranks" value="'+CFG.ranks.join(',')+'"></div>'
+      + '<button class="btn btn-pr btn-sm" onclick="saveCfg()">💾 설정 저장</button>'
+      + '</div>'
+      + '<div style="padding:0 12px 8px;"><button class="btn btn-gy btn-sm" onclick="logout()">로그아웃</button></div>';
+
+  } else if(CUR.role==='lead' || CUR.role==='supervisor'){
+    // 팀장
+    el.innerHTML = '<div class="role-grid" style="grid-template-columns:1fr 1fr;">'
+      + '<div class="role-card lc" onclick="goLead()">'
+      + '<div class="ic">📝</div><h3>TBM 작성</h3><p>TBM 작성 · 참여자 지정<br>서명 현황 · PDF</p></div>'
+      + '<div class="role-card mc" onclick="goMember()">'
+      + '<div class="ic">✍️</div><h3>내 서명</h3><p>배정된 TBM 확인<br>및 서명</p></div>'
+      + '</div>'
+      + '<div style="padding:0 12px 8px;"><button class="btn btn-gy btn-sm" onclick="logout()">로그아웃 ('+CUR.name+')</button></div>';
+
+  } else {
+    // 일반 팀원
+    el.innerHTML = '<div style="padding:14px;">'
+      + '<div class="role-card mc" onclick="goMember()" style="max-width:320px;margin:0 auto;">'
+      + '<div class="ic">✍️</div><h3>TBM 교육 확인 및 서명</h3>'
+      + '<p>배정된 TBM 내용을 확인하고<br>서명을 완료하세요</p></div>'
+      + '</div>'
+      + '<div style="padding:0 12px 8px;"><button class="btn btn-gy btn-sm" onclick="logout()">로그아웃 ('+CUR.name+')</button></div>';
+  }
+}
+
+function saveCfg(){
+  CFG.company      = (document.getElementById('cfg-company')?.value||'').trim();
+  CFG.supervisor   = (document.getElementById('cfg-supervisor')?.value||'').trim();
+  CFG.supervisorPw = (document.getElementById('cfg-sup-pw')?.value||'0000');
+  CFG.teams        = (document.getElementById('cfg-teams')?.value||'').split(',').map(function(t){ return t.trim(); }).filter(Boolean);
+  CFG.ranks        = (document.getElementById('cfg-ranks')?.value||'').split(',').map(function(r){ return r.trim(); }).filter(Boolean);
+  LS.setItem('tbm_cfg', JSON.stringify(CFG));
+  alert2('저장 완료','설정이 저장되었습니다.');
+}
+
+// ══════════════════════════════════════════════════════════
+// 팀장 화면
+// ══════════════════════════════════════════════════════════
+function goLead(){
+  LEAD_TEAM = CUR.team || CFG.teams[0];
+  document.getElementById('lead-badge').textContent = LEAD_TEAM;
+  // 교육담당자/관리감독자 자동 입력
+  const leadEl = document.getElementById('t-lead');
+  const supEl  = document.getElementById('t-supervisor');
+  if(leadEl) leadEl.value = CUR.name + ' (' + CUR.rank + ')';
+  if(supEl)  supEl.value  = CFG.supervisor || '(설정에서 입력 필요)';
+  loadTBM();
+  lStep(0);
+  go('lead');
+}
+
+function lStep(n){
+  // 단계: 0=TBM작성, 1=참여자선택, 2=현황·PDF
+  [0,1,2].forEach(function(i){
+    const el=document.getElementById('lc'+i);
+    if(el) el.style.display=i===n?'block':'none';
+    const si=document.getElementById('ls'+i);
+    if(si){
+      si.classList.remove('on','done');
+      if(i<n) si.classList.add('done');
+      else if(i===n) si.classList.add('on');
+    }
+  });
+  if(n===1){ showTBMSummary(); loadAssignList(); }
+  if(n===2) startStatusListener();
+  window.scrollTo(0,0);
+}
+
+async function saveTBM(){
+  const date=document.getElementById('t-date').value;
+  const time=document.getElementById('t-time').value;
+  const loc=document.getElementById('t-loc').value.trim();
+  const work=document.getElementById('t-work').value.trim();
+  const danger=document.getElementById('t-danger').value.trim();
+  const safety=document.getElementById('t-safety').value.trim();
+  const ppe=document.getElementById('t-ppe').value.trim();
+  const note=document.getElementById('t-note').value.trim();
+  const lead=document.getElementById('t-lead').value||CUR.name;
+  const supervisor=document.getElementById('t-supervisor').value||CFG.supervisor||'';
+  if(!date||!loc||!work||!danger||!safety){ alert2('입력 오류','날짜·장소·작업내용·위험요인·안전수칙은 필수입니다.'); return; }
+  TBM={date,time,loc,work,lead,supervisor,danger,safety,ppe,note,team:LEAD_TEAM,company:CFG.company};
+  LS.setItem('tbm_data',JSON.stringify(TBM));
+  setSS('ing','TBM 저장 중...');
+  try{
+    await dbSet('tbm/'+LEAD_TEAM+'/'+dbKey(date), Object.assign({}, TBM, {savedAt:Date.now()}));
+    setSS('ok','TBM 저장 완료 ✓');
+    lStep(1);
+  }catch(e){ setSS('err','저장 실패'); alert2('오류','TBM 저장 실패: '+e.message); }
+}
+
+async function loadTBM(){
+  if(!LEAD_TEAM) return;
+  const date=document.getElementById('t-date').value;
+  try{
+    const data=await dbGet('tbm/'+LEAD_TEAM+'/'+dbKey(date));
+    if(data){
+      TBM=data;
+      ['date','time','loc','work','danger','safety','ppe','note'].forEach(function(k){
+        const el=document.getElementById('t-'+k); if(el&&data[k]) el.value=data[k];
+      });
+      setSS('ok','TBM 불러오기 완료 ✓');
+    }
+  }catch(e){}
+}
+
+function showTBMSummary(){
+  const el=document.getElementById('tbm-summary');
+  if(!TBM){ el.innerHTML='<p style="color:var(--or);font-size:13px;">TBM이 없습니다. 1단계에서 저장해주세요.</p>'; return; }
+  el.innerHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">'
+    +'<span class="chip chip-bl">'+TBM.date+'</span>'
+    +'<span class="chip chip-or">'+TBM.loc+'</span></div>'
+    +'<div class="tbm-sec"><h4>🔧 작업 내용</h4><p>'+TBM.work+'</p></div>'
+    +'<div class="tbm-sec"><h4>⚠️ 위험 요인</h4><p>'+TBM.danger+'</p></div>';
+}
+
+// ══════════════════════════════════════════════════════════
+// 참여자 선택 (가입된 팀원 중)
+// ══════════════════════════════════════════════════════════
+async function loadAssignList(){
+  const el = document.getElementById('assign-list');
+  el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>팀원 불러오는 중...</p>';
+  try{
+    const data = await dbGet('users');
+    if(!data){ el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">가입된 팀원이 없습니다.</p>'; return; }
+
+    // 같은 팀 필터
+    const teamMembers = Object.values(data).filter(function(u){
+      return u && u.team===LEAD_TEAM && u.role==='member';
+    }).sort(function(a,b){ return a.name>b.name?1:-1; });
+
+    if(!teamMembers.length){ el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">'+LEAD_TEAM+' 가입된 팀원이 없습니다.</p>'; return; }
+
+    // 기존 배정 로드
+    let prevAssigned = new Set();
+    if(TBM){
+      try{
+        const prev = await dbGet('assignments/'+LEAD_TEAM+'/'+dbKey(TBM.date));
+        if(prev) Object.keys(prev).forEach(function(k){ prevAssigned.add(prev[k].name||k); });
+      }catch(e){}
+    }
+
+    el.innerHTML = teamMembers.map(function(u){
+      const checked = prevAssigned.has(u.name) ? 'checked' : '';
+      return '<div class="assign-item" onclick="toggleAssign(\''+safeKey(u.name)+'\')">'
+        +'<input type="checkbox" id="asgn-'+safeKey(u.name)+'" '+checked+' onclick="event.stopPropagation()" onchange="updateAssignCount()">'
+        +'<div>'
+        +'<div style="font-size:14px;font-weight:700;">'+u.name+'</div>'
+        +'<div style="font-size:11px;color:var(--sub);">'+u.rank+'</div>'
+        +'</div></div>';
+    }).join('');
+
+    document.getElementById('assign-count').textContent = prevAssigned.size+'명';
+  }catch(e){ el.innerHTML='<p style="color:var(--rd);font-size:13px;text-align:center;padding:14px;">불러오기 실패: '+e.message+'</p>'; }
+}
+
+function toggleAssign(key){
+  const cb = document.getElementById('asgn-'+key);
+  if(cb){ cb.checked=!cb.checked; updateAssignCount(); }
+}
+
+function updateAssignCount(){
+  const cnt = document.querySelectorAll('#assign-list input[type=checkbox]:checked').length;
+  document.getElementById('assign-count').textContent = cnt+'명';
+}
+
+function selectAllMembers(){
+  document.querySelectorAll('#assign-list input[type=checkbox]').forEach(function(cb){ cb.checked=true; });
+  updateAssignCount();
+}
+
+async function saveAssignment(){
+  if(!TBM){ alert2('오류','TBM을 먼저 저장해주세요.'); return; }
+  const checked = document.querySelectorAll('#assign-list input[type=checkbox]:checked');
+  if(!checked.length){ alert2('선택 필요','참여자를 1명 이상 선택해주세요.'); return; }
+
+  const assignObj = {};
+  checked.forEach(function(cb){
+    const key = cb.id.replace('asgn-','');
+    const nameEl = cb.parentElement.querySelector('div div:first-child');
+    const rankEl = cb.parentElement.querySelector('div div:last-child');
+    const name = nameEl ? nameEl.textContent : key;
+    const rank = rankEl ? rankEl.textContent : '';
+    assignObj[key] = {name, rank};
+  });
+
+  setSS('ing','참여자 저장 중...');
+  try{
+    await dbSet('assignments/'+LEAD_TEAM+'/'+dbKey(TBM.date), assignObj);
+    ASSIGNED = Object.values(assignObj);
+    setSS('ok','참여자 '+ASSIGNED.length+'명 확정 ✓');
+    lStep(2);
+  }catch(e){ setSS('err','저장 실패'); alert2('오류',e.message); }
+}
+
+// ══════════════════════════════════════════════════════════
+// QR 생성
+// ══════════════════════════════════════════════════════════
+
+
+// ══════════════════════════════════════════════════════════
+// 서명 현황 (실시간 리스너)
+// ══════════════════════════════════════════════════════════
+async function startStatusListener(){
+  dbUnlisten(statusListener);
+  let date = TBM?TBM.date:todayStr();
+  try{
+    const tbmList=await dbGet('tbm/'+LEAD_TEAM);
+    if(tbmList){
+      const dates=Object.values(tbmList).filter(Boolean).map(function(t){ return t.date||''; }).filter(Boolean).sort();
+      if(dates.length>0) date=dates[dates.length-1];
+    }
+  }catch(e2){}
+  // 배정 인원도 로드
+  try{
+    const aData=await dbGet('assignments/'+LEAD_TEAM+'/'+dbKey(date));
+    if(aData) ASSIGNED=Object.values(aData).filter(Boolean);
+  }catch(e){}
+  const path='sigs/'+LEAD_TEAM+'/'+dbKey(date);
+  statusListener=dbListen(path, function(data){
+    SIGS=data?Object.values(data).filter(Boolean):[];
+    renderStatus();
+  });
+}
+
+async function refreshStatus(){ startStatusListener(); }
+
+function renderStatus(){
+  const date=TBM?TBM.date:todayStr();
+  const signed=new Set(SIGS.map(function(s){ return s.name; }));
+  const total=ASSIGNED.length;
+  const done=ASSIGNED.filter(function(m){ return signed.has(m.name); }).length;
+  const pct=total?Math.round(done/total*100):0;
+  document.getElementById('prog-text').textContent=done+' / '+total+'명 완료';
+  document.getElementById('prog-pct').textContent=pct+'%';
+  document.getElementById('prog-bar').style.width=pct+'%';
+  document.getElementById('all-done-banner').style.display=(total>0&&done===total)?'block':'none';
+  const el=document.getElementById('status-list');
+  if(!ASSIGNED.length){ el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:12px;">참여자를 지정해주세요.</p>'; return; }
+  el.innerHTML=ASSIGNED.map(function(m){
+    const sig=SIGS.find(function(s){ return s.name===m.name; });
+    return '<div class="member-row">'
+      +'<div class="m-check '+(sig?'done':'')+'">'+( sig?'✓':'')+'</div>'
+      +'<div class="m-info"><div class="m-name">'+m.name+'</div>'
+      +'<div class="m-meta">'+m.rank+' · '+(sig?sig.time:'미서명')+'</div></div>'
+      +(sig&&sig.sigImg?'<img class="m-sig" src="'+sig.sigImg+'" alt="서명">'
+        :'<span class="chip chip-or">대기</span>')
+      +'</div>';
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+// 팀원 서명 화면
+// ══════════════════════════════════════════════════════════
+async function goMember(){
+  if(!CUR){ go('signin'); return; }
+  document.getElementById('m-badge').textContent = CUR.name+' · '+CUR.team;
+  document.getElementById('s-name').textContent  = CUR.name;
+  document.getElementById('s-meta').textContent  = CUR.team+' · '+CUR.rank;
+  document.getElementById('ms-none').style.display='none';
+  document.getElementById('ms-main').style.display='none';
+  document.getElementById('ms-done').style.display='none';
+  document.getElementById('already-signed-banner').style.display='none';
+  document.getElementById('ms-sign-section').style.display='block';
+  ['c1','c2','c3','c4'].forEach(function(id){ document.getElementById(id).checked=false; });
+  clearSig();
+  go('member');
+
+  // 오늘 TBM 로드
+  const today=todayStr();
+  const content=document.getElementById('m-tbm-content');
+  content.innerHTML='<p style="color:var(--sub);font-size:13px;"><span class="spin"></span>교육 내용 불러오는 중...</p>';
+  try{
+    const tbmData=await dbGet('tbm/'+CUR.team+'/'+dbKey(today));
+    if(!tbmData){ document.getElementById('ms-none').style.display='block'; return; }
+    TBM=tbmData;
+
+    // 배정 확인
+    const aData=await dbGet('assignments/'+CUR.team+'/'+dbKey(today));
+    const assigned=aData?Object.values(aData).filter(Boolean):[];
+    const isAssigned=assigned.some(function(a){ return a.name===CUR.name; });
+    if(!isAssigned && assigned.length>0){
+      content.innerHTML='<div style="background:var(--orb);border-radius:8px;padding:12px;font-size:13px;color:var(--or);">⚠️ 오늘 TBM 참여자로 배정되지 않았습니다.<br>TBM 진행자에게 문의하세요.</div>';
+      document.getElementById('ms-main').style.display='block';
+      document.getElementById('ms-sign-section').style.display='none';
+      return;
+    }
+
+    // 이미 서명했는지 확인
+    const sigData=await dbGet('sigs/'+CUR.team+'/'+dbKey(today)+'/'+safeKey(CUR.name));
+    if(sigData){
+      document.getElementById('already-signed-banner').style.display='block';
+      document.getElementById('already-signed-time').textContent='서명 시각: '+sigData.time;
+      document.getElementById('ms-sign-section').style.display='none';
+    }
+
+    content.innerHTML=renderTBMHtml(TBM);
+    document.getElementById('ms-main').style.display='block';
+  }catch(e){
+    content.innerHTML='<p style="color:var(--rd);font-size:13px;">서버 연결 실패. 네트워크를 확인해주세요.</p>';
+    document.getElementById('ms-main').style.display='block';
+  }
+}
+
+function renderTBMHtml(t){
+  return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">'
+    +'<span class="chip chip-bl">'+t.date+'</span>'
+    +'<span class="chip chip-bl">'+( t.time||'')+'</span>'
+    +'<span class="chip chip-or">'+( t.loc||'')+'</span></div>'
+    +'<div class="tbm-sec"><h4>🔧 작업 내용</h4><p>'+(t.work||'-')+'</p></div>'
+    +'<div class="tbm-sec"><h4>⚠️ 위험 요인</h4><p>'+(t.danger||'-')+'</p></div>'
+    +'<div class="tbm-sec"><h4>✅ 안전 수칙</h4><p>'+(t.safety||'-')+'</p></div>'
+    +(t.ppe?'<div class="tbm-sec"><h4>🦺 보호구</h4><p>'+t.ppe+'</p></div>':'')
+    +(t.note?'<div class="tbm-sec"><h4>📝 특이사항</h4><p>'+t.note+'</p></div>':'')
+    +'<div style="background:var(--gyb);border-radius:6px;padding:8px 10px;font-size:11px;margin-top:6px;">'
+    +'<div><span style="color:var(--pr);font-weight:700;">관리감독자:</span> '+(t.supervisor||'-')+'</div>'
+    +'<div style="margin-top:2px;"><span style="color:var(--sub);font-weight:600;">TBM 교육담당자:</span> '+(t.lead||'-')+'</div>'
+    +'</div>';
+}
+
+// ══════════════════════════════════════════════════════════
+// 서명 캔버스
+// ══════════════════════════════════════════════════════════
+function initCanvas(){
+  const cv=document.getElementById('sigCanvas');
+  if(!cv) return;
+  function resize(){
+    const w=cv.offsetWidth||320;
+    const dpr=window.devicePixelRatio||1;
+    cv.width=w*dpr; cv.height=180*dpr;
+    cv.style.height='180px';
+    sigCtx=cv.getContext('2d');
+    sigCtx.scale(dpr,dpr);
+    sigCtx.strokeStyle='#1a1a2e';
+    sigCtx.lineWidth=2.8;
+    sigCtx.lineCap='round';
+    sigCtx.lineJoin='round';
+    sigCtx.fillStyle='#ffffff';
+    sigCtx.fillRect(0,0,w,180);
+  }
+  resize();
+  window.addEventListener('resize',resize);
+  function pos(e){ const r=cv.getBoundingClientRect(); const s=e.touches?e.touches[0]:e; return{x:s.clientX-r.left,y:s.clientY-r.top}; }
+  cv.addEventListener('mousedown',function(e){ sigDrawing=true; const p=pos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x,p.y); hideGuide(); });
+  cv.addEventListener('mousemove',function(e){ if(!sigDrawing)return; const p=pos(e); sigCtx.lineTo(p.x,p.y); sigCtx.stroke(); updatePreview(); });
+  cv.addEventListener('mouseup',function(){ sigDrawing=false; updatePreview(); });
+  cv.addEventListener('mouseleave',function(){ sigDrawing=false; });
+  cv.addEventListener('touchstart',function(e){ e.preventDefault(); sigDrawing=true; const p=pos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x,p.y); hideGuide(); },{passive:false});
+  cv.addEventListener('touchmove',function(e){ e.preventDefault(); if(!sigDrawing)return; const p=pos(e); sigCtx.lineTo(p.x,p.y); sigCtx.stroke(); updatePreview(); },{passive:false});
+  cv.addEventListener('touchend',function(){ sigDrawing=false; updatePreview(); });
+}
+function hideGuide(){ const g=document.querySelector('.sig-guide-txt'); if(g) g.style.display='none'; }
+function clearSig(){
+  const cv=document.getElementById('sigCanvas');
+  if(!cv||!sigCtx) return;
+  sigCtx.fillStyle='#ffffff'; sigCtx.fillRect(0,0,cv.offsetWidth||320,180);
+  document.getElementById('sig-preview-card').style.display='none';
+  const g=document.querySelector('.sig-guide-txt'); if(g) g.style.display='block';
+}
+function updatePreview(){
+  if(sigEmpty()) return;
+  const cv=document.getElementById('sigCanvas');
+  document.getElementById('sig-preview-img').src=cv.toDataURL('image/png');
+  document.getElementById('sig-preview-card').style.display='block';
+}
+function sigEmpty(){
+  const cv=document.getElementById('sigCanvas');
+  if(!cv||!sigCtx) return true;
+  const d=sigCtx.getImageData(0,0,cv.width,cv.height).data;
+  for(let i=0;i<d.length;i+=4) if(d[i]<250||d[i+1]<250||d[i+2]<250) return false;
+  return true;
+}
+
+// ══════════════════════════════════════════════════════════
+// 서명 제출
+// ══════════════════════════════════════════════════════════
+async function submitSig(){
+  if(!['c1','c2','c3','c4'].every(function(id){ return document.getElementById(id).checked; })){
+    alert2('확인 필요','위의 모든 항목에 체크해주세요.'); return;
+  }
+  if(sigEmpty()){ alert2('서명 필요','서명 패드에 서명해 주세요.'); return; }
+  const cv=document.getElementById('sigCanvas');
+  const sigImg=cv.toDataURL('image/png');
+  const now=new Date();
+  const time=now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+  const date=TBM?TBM.date:todayStr();
+  const record={
+    name:CUR.name, team:CUR.team, rank:CUR.rank,
+    time, date, sigImg, work:TBM?.work||'', loc:TBM?.loc||'',
+    supervisor:TBM?.supervisor||CFG.supervisor||'', savedAt:Date.now()
+  };
+  setSS('ing','서명 저장 중...');
+  try{
+    await dbSet('sigs/'+CUR.team+'/'+dbKey(date)+'/'+safeKey(CUR.name), record);
+    setSS('ok','서명 저장 완료 ✓');
+    // 완료 화면
+    document.getElementById('done-msg').innerHTML=
+      '<strong>'+CUR.name+'</strong> ('+CUR.team+' / '+CUR.rank+')<br>서명이 저장되었습니다.<br><span style="font-size:11px;">등록 시각: '+time+'</span>';
+    document.getElementById('done-sig-img').src=sigImg;
+    document.getElementById('ms-main').style.display='none';
+    document.getElementById('ms-done').style.display='block';
+  }catch(e){ setSS('err','저장 실패'); alert2('오류','서명 저장 실패: '+e.message); }
+}
+
+// ══════════════════════════════════════════════════════════
+// 관리감독자 대시보드
+// ══════════════════════════════════════════════════════════
+function goDash(){
+  go('dash');
+  dTab(0);
+}
+
+function dTab(n){
+  [0,1,2].forEach(function(i){
+    document.getElementById('dt'+i).classList.toggle('on',i===n);
+    document.getElementById('dc'+i).style.display=i===n?'block':'none';
+  });
+  if(n===0) loadDashStatus();
+  if(n===1) loadEmployees();
+  if(n===2){
+    const sel=document.getElementById('hist-team-sel');
+    sel.innerHTML='<option value="">팀 선택</option>'+CFG.teams.map(function(t){ return '<option>'+t+'</option>'; }).join('');
+  }
+}
+
+async function loadDashStatus(){
+  const today=todayStr();
+  document.getElementById('dash-date-info').textContent='기준일: '+today;
+  document.getElementById('dash-team-list').innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>불러오는 중...</p>';
+  let teamData={};
+  await Promise.all(CFG.teams.map(async function(team){
+    try{
+      let sigDate=today;
+      const tbmList=await dbGet('tbm/'+team);
+      if(tbmList){
+        const dates=Object.values(tbmList).filter(Boolean).map(function(t){ return t.date||''; }).filter(Boolean).sort();
+        if(dates.length>0) sigDate=dates[dates.length-1];
+      }
+      const [aData, sigsData]=await Promise.all([
+        dbGet('assignments/'+team+'/'+dbKey(sigDate)),
+        dbGet('sigs/'+team+'/'+dbKey(sigDate))
+      ]);
+      const assigned=aData?Object.values(aData).filter(Boolean):[];
+      const sigs=sigsData?Object.values(sigsData).filter(Boolean):[];
+      teamData[team]={assigned, sigs, sigDate};
+    }catch(e){ teamData[team]={assigned:[],sigs:[],sigDate:today}; }
+  }));
+  renderDashStatus(teamData, today);
+}
+
+function renderDashStatus(teamData, today){
+  let totalSigs=0, doneCnt=0, activeTeams=0;
+  const nudgeLines=['[TBM '+today+' 미서명 안내]\n'];
+  let hasNudge=false;
+  let rowsHtml='';
+  CFG.teams.forEach(function(team){
+    const d=teamData[team]||{assigned:[],sigs:[]};
+    const total=d.assigned.length;
+    const done=d.assigned.filter(function(m){ return d.sigs.find(function(s){ return s.name===m.name; }); }).length;
+    const pct=total>0?Math.round(done/total*100):0;
+    const color=pct===100?'var(--gr)':pct>50?'var(--or)':'var(--rd)';
+    totalSigs+=done;
+    if(total>0) activeTeams++;
+    if(total>0&&done===total) doneCnt++;
+    if(total>0&&done<total){
+      const unsigned=d.assigned.filter(function(m){ return !d.sigs.find(function(s){ return s.name===m.name; }); }).map(function(m){ return m.name; });
+      if(unsigned.length){ hasNudge=true; nudgeLines.push('▶ '+team+': '+unsigned.join(', ')+' ('+unsigned.length+'명 미서명)'); }
+    }
+    const pctText=total>0?pct+'%':'-';
+    const cntText=total>0?done+'/'+total:'-';
+    rowsHtml+='<div class="dash-team-row">'
+      +'<div class="dash-team-name">'+team+'</div>'
+      +'<div class="dash-prog-wrap"><div class="dash-prog-bar" style="width:'+pct+'%;background:'+color+';"></div></div>'
+      +'<div class="dash-pct" style="color:'+color+';">'+pctText+'</div>'
+      +'<div style="font-size:11px;color:var(--sub);width:40px;text-align:right;">'+cntText+'</div>'
+      +'</div>';
+  });
+  document.getElementById('dash-team-list').innerHTML=rowsHtml||'<p style="color:var(--sub);font-size:13px;text-align:center;padding:12px;">데이터 없음</p>';
+  document.getElementById('dash-total-teams').textContent=activeTeams;
+  document.getElementById('dash-done-teams').textContent=doneCnt;
+  document.getElementById('dash-total-sigs').textContent=totalSigs;
+  const nudgeCard=document.getElementById('dash-nudge-card');
+  if(hasNudge){
+    nudgeLines.push('\n위 팀원들은 TBM 서명을 완료해주시기 바랍니다.');
+    document.getElementById('dash-nudge-msg').textContent=nudgeLines.join('\n');
+    nudgeCard.style.display='block';
+  }else{ nudgeCard.style.display='none'; }
+}
+
+// ══════════════════════════════════════════════════════════
+// 직원 관리
+// ══════════════════════════════════════════════════════════
+let empFilter='전체';
+async function loadEmployees(){
+  const el=document.getElementById('emp-list');
+  el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>불러오는 중...</p>';
+  try{
+    const data=await dbGet('users');
+    if(!data){ el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">가입된 직원이 없습니다.</p>'; return; }
+    const users=Object.values(data).filter(Boolean);
+    // 팀 필터 버튼
+    const filterBar=document.getElementById('emp-filter-bar');
+    filterBar.innerHTML=['전체',...CFG.teams].map(function(t){
+      return '<button type="button" onclick="empFilter=\''+t+'\';renderEmployees('+JSON.stringify(users)+')"'
+        +' style="padding:4px 10px;border:1.5px solid '+(empFilter===t?'var(--pr)':'var(--bd)')+';border-radius:20px;'
+        +'background:'+(empFilter===t?'var(--pr)':'#fff')+';color:'+(empFilter===t?'#fff':'var(--sub)')+';'
+        +'font-size:11px;font-weight:600;cursor:pointer;touch-action:manipulation;">'+t+'</button>';
+    }).join('');
+    renderEmployees(users);
+  }catch(e){ el.innerHTML='<p style="color:var(--rd);font-size:13px;text-align:center;padding:14px;">불러오기 실패</p>'; }
+}
+
+function renderEmployees(users){
+  const el=document.getElementById('emp-list');
+  const filtered=empFilter==='전체'?users:users.filter(function(u){ return u.team===empFilter; });
+  if(!filtered.length){ el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">해당 팀원 없음</p>'; return; }
+  el.innerHTML=filtered.map(function(u){
+    return '<div class="member-row">'
+      +'<div class="m-info">'
+      +'<div class="m-name">'+u.name+'</div>'
+      +'<div class="m-meta">'+u.team+' · '+u.rank+'</div>'
+      +'</div>'
+      +'<span class="chip chip-bl">'+u.team+'</span>'
+      +'</div>';
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+// TBM 이력
+// ══════════════════════════════════════════════════════════
+async function loadHistory(){
+  const team=document.getElementById('hist-team-sel').value;
+  const list=document.getElementById('hist-list');
+  document.getElementById('hist-detail-card').style.display='none';
+  if(!team){ list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">팀을 선택해주세요.</p>'; return; }
+  list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>불러오는 중...</p>';
+  try{
+    const data=await dbGet('tbm/'+team);
+    if(!data||!Object.keys(data).length){ list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">저장된 TBM이 없습니다.</p>'; return; }
+    const entries=Object.values(data).filter(Boolean).sort(function(a,b){ return b.date>a.date?1:-1; });
+    list.innerHTML=entries.map(function(tbm){
+      return '<div class="hist-row" onclick="loadHistDetail(\''+team+'\',\''+tbm.date+'\')">'+
+        '<div class="hist-date">'+tbm.date+' '+( tbm.time||'')+'</div>'+
+        '<div class="hist-info">'+( tbm.loc||'')+' · '+(tbm.work||'').slice(0,20)+'</div>'+
+        '<div class="hist-info">진행자: '+(tbm.lead||'-')+'</div></div>';
+    }).join('');
+  }catch(e){ list.innerHTML='<p style="color:var(--rd);font-size:13px;text-align:center;padding:14px;">불러오기 실패</p>'; }
+}
+
+async function loadHistDetail(team, date){
+  const card=document.getElementById('hist-detail-card');
+  card.style.display='block';
+  document.getElementById('hist-detail-title').textContent=team+' - '+date;
+  document.getElementById('hist-detail-content').innerHTML='<span class="spin"></span>불러오는 중...';
+  try{
+    const [tbmData,sigsData,aData]=await Promise.all([
+      dbGet('tbm/'+team+'/'+dbKey(date)),
+      dbGet('sigs/'+team+'/'+dbKey(date)),
+      dbGet('assignments/'+team+'/'+dbKey(date))
+    ]);
+    HIST_TBM=tbmData||{}; HIST_SIGS=sigsData?Object.values(sigsData).filter(Boolean):[];
+    const assigned=aData?Object.values(aData).filter(Boolean):[];
+    document.getElementById('hist-detail-content').innerHTML=renderTBMHtml(HIST_TBM);
+    const signed=new Set(HIST_SIGS.map(function(s){ return s.name; }));
+    document.getElementById('hist-sig-list').innerHTML=
+      '<div style="font-size:13px;font-weight:700;color:var(--pr);margin-bottom:8px;">✍️ 서명자 ('+HIST_SIGS.filter(function(s){ return s.sigImg; }).length+'명) / 참여자 ('+assigned.length+'명)</div>'
+      +(assigned.length?assigned.map(function(m){
+        const sig=HIST_SIGS.find(function(s){ return s.name===m.name; });
+        return '<div class="member-row">'
+          +'<div class="m-check '+(sig?'done':'')+'">'+( sig?'✓':'')+'</div>'
+          +'<div class="m-info"><div class="m-name">'+m.name+'</div>'
+          +'<div class="m-meta">'+m.rank+' · '+(sig?sig.time:'미서명')+'</div></div>'
+          +(sig&&sig.sigImg?'<img class="m-sig" src="'+sig.sigImg+'" alt="서명">'
+            :'<span class="chip chip-or">미서명</span>')+'</div>';
+      }).join(''):'<p style="font-size:13px;color:var(--sub);text-align:center;padding:12px;">서명 데이터 없음</p>');
+    card.scrollIntoView({behavior:'smooth'});
+  }catch(e){ document.getElementById('hist-detail-content').innerHTML='<p style="color:var(--rd);font-size:13px;">불러오기 실패</p>'; }
+}
+
+async function genPDFFromHistory(){
+  if(!HIST_TBM||!HIST_TBM.date){ alert2('선택 필요','이력 항목을 선택해주세요.'); return; }
+  const prev={tbm:TBM, sigs:SIGS, assigned:ASSIGNED, team:LEAD_TEAM};
+  TBM=HIST_TBM; SIGS=HIST_SIGS;
+  const team=document.getElementById('hist-team-sel').value;
+  const aData=await dbGet('assignments/'+team+'/'+dbKey(HIST_TBM.date));
+  ASSIGNED=aData?Object.values(aData).filter(Boolean):[];
+  LEAD_TEAM=team;
+  await genPDF();
+  TBM=prev.tbm; SIGS=prev.sigs; ASSIGNED=prev.assigned; LEAD_TEAM=prev.team;
+}
+
+// ══════════════════════════════════════════════════════════
+// PDF 생성
+// ══════════════════════════════════════════════════════════
+async function genPDF(){
+  const team=LEAD_TEAM||CUR.team||'';
+  let date=TBM?TBM.date:todayStr();
+  setSS('ing','PDF 데이터 불러오는 중...');
+  // 서버에서 최신 데이터
+  try{
+    const [tbmData,sigsData,aData]=await Promise.all([
+      dbGet('tbm/'+team+'/'+dbKey(date)),
+      dbGet('sigs/'+team+'/'+dbKey(date)),
+      dbGet('assignments/'+team+'/'+dbKey(date))
+    ]);
+    if(tbmData) TBM=tbmData;
+    if(sigsData) SIGS=Object.values(sigsData).filter(Boolean);
+    if(aData) ASSIGNED=Object.values(aData).filter(Boolean);
+    setSS('ok','PDF 생성 중...');
+  }catch(e){}
+
+  const tbm=TBM||{};
+  const sigRows=ASSIGNED.map(function(row){
+    const sig=SIGS.find(function(s){ return s.name===row.name; });
+    const sigCell=sig&&sig.sigImg
+      ?'<img src="'+sig.sigImg+'" style="height:42px;max-width:130px;object-fit:contain;vertical-align:middle;" alt="서명">'
+      :'<span style="color:#ccc;font-size:11px;">미서명</span>';
+    return '<tr><td style="'+(sig?'':'color:#bbb;')+'">'+row.name+'</td><td>'+team+'</td>'
+      +'<td>'+(row.rank||'-')+'</td><td style="text-align:center;">'+(sig?sig.time||'-':'-')+'</td>'
+      +'<td style="text-align:center;padding:3px 6px;">'+sigCell+'</td></tr>';
+  }).join('');
+
+  const printHTML='<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">'
+    +'<title>TBM 안전교육 회의일지</title><style>'
+    +'*{box-sizing:border-box;margin:0;padding:0;}'
+    +'body{font-family:\'맑은 고딕\',\'Apple SD Gothic Neo\',\'Noto Sans KR\',sans-serif;font-size:12px;color:#111;background:#fff;padding:14mm 14mm;}'
+    +'h1{font-size:17px;font-weight:900;text-align:center;color:#fff;background:#1e40af;padding:10px;margin-bottom:3px;}'
+    +'.sub{text-align:center;font-size:10px;color:#888;margin-bottom:3px;}'
+    +'.law{text-align:center;font-size:9px;color:#aaa;margin-bottom:12px;}'
+    +'.sec{font-size:11px;font-weight:700;padding:5px 8px;margin-bottom:4px;border-radius:3px;}'
+    +'.blue{background:#dbeafe;color:#1e40af;}.red{background:#fee2e2;color:#991b1b;}.green{background:#dcfce7;color:#166534;}'
+    +'.info{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px;}'
+    +'.info th{width:80px;background:#f1f5f9;padding:5px 7px;text-align:left;font-weight:700;border:1px solid #e2e8f0;color:#475569;}'
+    +'.info td{padding:5px 7px;border:1px solid #e2e8f0;line-height:1.5;}'
+    +'.sup-row th{background:#dcfce7;color:#166534;}.sup-row td{font-weight:700;color:#166534;}'
+    +'.box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;padding:8px 10px;font-size:11px;line-height:1.8;white-space:pre-wrap;min-height:28px;margin-bottom:10px;}'
+    +'.sigt{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px;}'
+    +'.sigt th{background:#1e40af;color:#fff;padding:6px 8px;text-align:left;font-weight:700;border:1px solid #1e3a8a;}'
+    +'.sigt td{padding:4px 7px;border:1px solid #e2e8f0;vertical-align:middle;height:50px;}'
+    +'.sigt tr:nth-child(even) td{background:#f8fafc;}'
+    +'.footer{padding-top:8px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#aaa;}'
+    +'@media print{body{padding:8mm 12mm;}@page{size:A4;margin:8mm 10mm;}}'
+    +'</style></head><body>'
+    +'<h1>TBM 안전교육 회의일지</h1>'
+    +'<div class="sub">'+(CFG.company||'')+'</div>'
+    +'<div class="law">(산업안전보건법 제29조 / 관리감독자 안전보건교육 이행 기록)</div>'
+    +'<div class="sec blue">기본 정보</div>'
+    +'<table class="info">'
+    +'<tr><th>날짜/시간</th><td>'+date+' '+(tbm.time||'')+'</td><th>팀</th><td>'+team+'</td></tr>'
+    +'<tr><th>작업 장소</th><td colspan="3">'+(tbm.loc||'-')+'</td></tr>'
+    +'<tr><th>작업 내용</th><td colspan="3">'+(tbm.work||'-')+'</td></tr>'
+    +'<tr class="sup-row"><th>관리감독자</th><td colspan="3">'+(tbm.supervisor||CFG.supervisor||'-')+'</td></tr>'
+    +'<tr><th>TBM 교육담당자</th><td colspan="3">'+(tbm.lead||'-')+'</td></tr>'
+    +'</table>'
+    +'<div class="sec red">위험 요인</div><div class="box">'+((tbm.danger||'-').replace(/</g,'&lt;'))+'</div>'
+    +'<div class="sec green">안전 수칙</div><div class="box">'+((tbm.safety||'-').replace(/</g,'&lt;'))+'</div>'
+    +(tbm.ppe?'<div class="sec blue">보호구</div><div class="box">'+tbm.ppe.replace(/</g,'&lt;')+'</div>':'')
+    +(tbm.note?'<div class="sec blue">특이사항</div><div class="box">'+tbm.note.replace(/</g,'&lt;')+'</div>':'')
+    +'<div class="sec blue">참석자 서명 ('+SIGS.filter(function(s){ return s.sigImg; }).length+'명 완료 / 전체 '+ASSIGNED.length+'명)</div>'
+    +'<table class="sigt"><thead><tr><th>이름</th><th>팀</th><th>직책</th><th>서명시각</th><th style="width:150px;">서명</th></tr></thead>'
+    +'<tbody>'+(sigRows||'<tr><td colspan="5" style="text-align:center;color:#999;padding:12px;">서명 없음</td></tr>')+'</tbody></table>'
+    +'<div class="footer"><span>생성: '+new Date().toLocaleString('ko-KR')+'</span><span>TBM 안전교육 회의일지</span><span>1/1</span></div>'
+    +'</body></html>';
+
+  const isIOS=/ipad|iphone|ipod/i.test(navigator.userAgent);
+  const sigCount=SIGS.filter(function(s){ return s.sigImg; }).length;
+  const w=window.open('','_blank');
+  if(w&&!isIOS){
+    w.document.write(printHTML); w.document.close(); w.focus();
+    setTimeout(function(){ w.print(); },1000);
+    setSS('ok','PDF 생성 완료 ✓');
+    alert2('PDF 생성 완료','서명 완료: '+sigCount+'명 / 전체 '+ASSIGNED.length+'명\n\n새 창에서 "PDF로 저장"을 선택하세요.');
+    return;
+  }
+  // iOS fallback
+  const iframe=document.createElement('iframe');
+  iframe.id='print-frame';
+  iframe.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  document.body.appendChild(iframe);
+  const idoc=iframe.contentWindow.document;
+  idoc.open(); idoc.write(printHTML); idoc.close();
+  setTimeout(function(){
+    try{ iframe.contentWindow.focus(); iframe.contentWindow.print(); setSS('ok','PDF 생성 완료 ✓');
+      if(!isIOS) alert2('PDF 완료','서명 완료: '+sigCount+'명');
+      else alert2('iPhone PDF 안내','인쇄 화면에서 손가락으로 확대(핀치) 후\n우측 상단 공유 -> "파일에 저장"을 선택하세요.');
+    }catch(e){}
+  },800);
+}
+
+// URL 파라미터 처리 (QR 제거로 단순화)
+function handleUrl(){ /* 계정 로그인 방식 — URL 파라미터 불필요 */ }
+
+// ══════════════════════════════════════════════════════════
+// 클립보드 복사 (iOS/Android 호환)
+// ══════════════════════════════════════════════════════════
+function copyToClipboard(text, msg){
+  if(navigator.clipboard&&window.isSecureContext){
+    navigator.clipboard.writeText(text).then(function(){ alert2('복사 완료',msg); }).catch(function(){ fallbackCopy(text,msg); });
+  }else{ fallbackCopy(text,msg); }
+}
+function fallbackCopy(text, msg){
+  const ta=document.createElement('textarea');
+  ta.value=text; ta.style.cssText='position:fixed;left:-9999px;top:0;'; ta.setAttribute('readonly','');
+  document.body.appendChild(ta);
+  if(/ipad|iphone|ipod/i.test(navigator.userAgent)){
+    const r=document.createRange(); r.selectNodeContents(ta);
+    const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); ta.setSelectionRange(0,999999);
+  }else{ ta.select(); }
+  try{ document.execCommand('copy'); alert2('복사 완료',msg); }catch(e){ alert2('복사 실패','직접 링크를 선택해서 복사해주세요.'); }
+  document.body.removeChild(ta);
+}
+function copyNudge(){ copyToClipboard(document.getElementById('dash-nudge-msg').textContent,'카카오톡 단체방에 붙여넣기 하세요.'); }
+
+// ══════════════════════════════════════════════════════════
+// 알림
+// ══════════════════════════════════════════════════════════
+function alert2(t,m){ document.getElementById('a-title').textContent=t; document.getElementById('a-msg').textContent=m; document.getElementById('alert-ov').classList.add('open'); }
+function closeAlert(){ document.getElementById('alert-ov').classList.remove('open'); }
+</script>
+</body>
+</html>
