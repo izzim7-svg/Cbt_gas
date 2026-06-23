@@ -649,10 +649,30 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
 
   <!-- 탭2: 직원 관리 -->
   <div id="adc2" style="display:none;">
+    <!-- 직원 추가 카드 -->
+    <div class="card">
+      <div class="card-title">➕ 직원 추가</div>
+      <div class="field"><label>이름</label><input type="text" id="adm-add-name" placeholder="홍길동" maxlength="10"></div>
+      <div class="field">
+        <label>소속 팀</label>
+        <select id="adm-add-team"></select>
+      </div>
+      <div class="field">
+        <label>직책</label>
+        <select id="adm-add-rank"></select>
+      </div>
+      <div class="field"><label>초기 비밀번호</label><input type="password" id="adm-add-pw" placeholder="4자 이상"></div>
+      <div id="adm-add-err" style="display:none;background:var(--rdb);color:var(--rd);border-radius:8px;padding:10px;font-size:13px;margin-bottom:8px;"></div>
+      <button class="btn btn-gr" onclick="aAddEmployee()">➕ 직원 추가</button>
+    </div>
+    <!-- 직원 목록 카드 -->
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div class="card-title" style="margin:0;">👥 가입된 직원 목록</div>
-        <button class="btn btn-gy btn-sm" onclick="aLoadEmployees()" style="width:auto;">🔄</button>
+        <div class="card-title" style="margin:0;">👥 직원 목록</div>
+        <div style="display:flex;gap:6px;">
+          <span id="adm-emp-count" style="font-size:12px;color:var(--sub);align-self:center;"></span>
+          <button class="btn btn-gy btn-sm" onclick="aLoadEmployees()" style="width:auto;">🔄</button>
+        </div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;" id="adm-emp-filter-bar"></div>
       <div id="adm-emp-list"><p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>불러오는 중...</p></div>
@@ -738,7 +758,46 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
   </div>
 </div>
 
-<!-- ══ 관리자 PDF 선택 모달 ══ -->
+<!-- ══ 직원 삭제 확인 팝업 ══ -->
+<div class="pw-modal-bg" id="emp-delete-modal">
+  <div class="pw-modal">
+    <h3>🗑️ 직원 삭제</h3>
+    <div class="pw-sub" id="emp-delete-sub">정말 삭제하시겠습니까?</div>
+    <div style="background:var(--rdb);border-radius:8px;padding:10px;font-size:13px;color:var(--rd);margin-bottom:14px;line-height:1.6;">
+      ⚠️ 삭제 후 복구가 불가능합니다.<br>해당 직원의 계정이 완전히 삭제됩니다.
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-gy" onclick="closeEmpDeleteModal()" style="flex:1;">취소</button>
+      <button class="btn btn-rd" onclick="confirmDeleteEmployee()" style="flex:1;">🗑️ 삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 직원 수정 팝업 ══ -->
+<div class="pw-modal-bg" id="emp-edit-modal">
+  <div class="pw-modal" style="max-width:360px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <h3 style="margin:0;">✏️ 직원 정보 수정</h3>
+      <button onclick="closeEmpEditModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--sub);">×</button>
+    </div>
+    <div class="pw-sub" id="emp-edit-sub">직원 정보를 수정합니다.</div>
+    <div class="field"><label>이름 <span style="color:var(--sub);font-size:10px;">(변경 불가)</span></label>
+      <input type="text" id="emp-edit-name" readonly style="background:var(--gyb);color:var(--sub);">
+    </div>
+    <div class="field"><label>소속 팀</label><select id="emp-edit-team"></select></div>
+    <div class="field"><label>직책</label><select id="emp-edit-rank"></select></div>
+    <div style="height:1px;background:var(--bd);margin:10px 0;"></div>
+    <div class="field">
+      <label>새 비밀번호 <span style="color:var(--sub);font-size:10px;">(변경 시만 입력)</span></label>
+      <input type="password" id="emp-edit-pw" placeholder="비우면 변경 안 함">
+    </div>
+    <div id="emp-edit-err" style="display:none;background:var(--rdb);color:var(--rd);border-radius:8px;padding:10px;font-size:13px;margin-bottom:10px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-gy" onclick="closeEmpEditModal()" style="flex:1;">취소</button>
+      <button class="btn btn-pr" onclick="confirmEditEmployee()" style="flex:1;">💾 저장</button>
+    </div>
+  </div>
+</div>
 <div class="pw-modal-bg" id="admin-pdf-modal">
   <div class="pw-modal" style="max-width:400px;max-height:85vh;overflow-y:auto;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -2021,7 +2080,7 @@ function aTab(n){
     document.getElementById('apdf2-detail-card').style.display='none';
     document.getElementById('apdf2-list').innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">팀을 선택하세요.</p>';
   }
-  if(n===2) aLoadEmployees();
+  if(n===2){ aInitEmpForm(); aLoadEmployees(); }
   if(n===3){
     const sel=document.getElementById('adm-hist-team');
     sel.innerHTML='<option value="">팀 선택</option>'+CFG.teams.map(function(t){ return '<option>'+t+'</option>'; }).join('');
@@ -2169,37 +2228,130 @@ async function aGenPDF(){
 }
 
 // ── 직원 관리 ──
+let ADM_ALL_USERS = []; // 전체 유저 캐시
+let EMP_DELETE_KEY = null;
+let EMP_EDIT_KEY = null;
+
+// 탭2 진입 시 팀/직책 셀렉트 채우기
+function aInitEmpForm(){
+  const teamSel = document.getElementById('adm-add-team');
+  const rankSel = document.getElementById('adm-add-rank');
+  if(teamSel) teamSel.innerHTML = CFG.teams.map(function(t){ return '<option>'+t+'</option>'; }).join('');
+  if(rankSel) rankSel.innerHTML = CFG.ranks.map(function(r){ return '<option>'+r+'</option>'; }).join('');
+}
+
+async function aAddEmployee(){
+  const name  = (document.getElementById('adm-add-name').value||'').trim();
+  const team  = document.getElementById('adm-add-team').value;
+  const rank  = document.getElementById('adm-add-rank').value;
+  const pw    = document.getElementById('adm-add-pw').value;
+  const errEl = document.getElementById('adm-add-err');
+  errEl.style.display='none';
+  if(!name){ errEl.textContent='이름을 입력해주세요.'; errEl.style.display='block'; return; }
+  if(pw.length<4){ errEl.textContent='비밀번호는 4자 이상이어야 합니다.'; errEl.style.display='block'; return; }
+  try{
+    const exists = await dbGet('users/'+safeKey(name));
+    if(exists){ errEl.textContent='이미 등록된 이름입니다.'; errEl.style.display='block'; return; }
+    await dbSet('users/'+safeKey(name), {name, team, rank, pw, role:'member', joinedAt:Date.now()});
+    document.getElementById('adm-add-name').value='';
+    document.getElementById('adm-add-pw').value='';
+    alert2('추가 완료', '['+name+'] ('+team+' / '+rank+') 직원이 추가되었습니다.');
+    aLoadEmployees();
+  }catch(e){ errEl.textContent='오류: '+e.message; errEl.style.display='block'; }
+}
+
 async function aLoadEmployees(){
   const el=document.getElementById('adm-emp-list');
   el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>불러오는 중...</p>';
+  aInitEmpForm();
   try{
     const data=await dbGet('users');
     if(!data){ el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">가입된 직원이 없습니다.</p>'; return; }
-    const users=Object.values(data).filter(Boolean);
+    ADM_ALL_USERS=Object.values(data).filter(Boolean).sort(function(a,b){ return (a.team+a.name)>(b.team+b.name)?1:-1; });
     const filterBar=document.getElementById('adm-emp-filter-bar');
     filterBar.innerHTML=['전체',...CFG.teams].map(function(t){
-      return '<button type="button" onclick="ADM_EMP_FILTER=\''+t+'\';aRenderEmployees('+JSON.stringify(users)+')"'
+      return '<button type="button" onclick="ADM_EMP_FILTER=\''+t+'\';aRenderEmployees()"'
         +' style="padding:4px 10px;border:1.5px solid '+(ADM_EMP_FILTER===t?'var(--pr)':'var(--bd)')+';border-radius:20px;'
         +'background:'+(ADM_EMP_FILTER===t?'var(--pr)':'#fff')+';color:'+(ADM_EMP_FILTER===t?'#fff':'var(--sub)')+';'
         +'font-size:11px;font-weight:600;cursor:pointer;touch-action:manipulation;">'+t+'</button>';
     }).join('');
-    aRenderEmployees(users);
+    aRenderEmployees();
   }catch(e){ el.innerHTML='<p style="color:var(--rd);font-size:13px;text-align:center;padding:14px;">불러오기 실패</p>'; }
 }
 
-function aRenderEmployees(users){
+function aRenderEmployees(){
   const el=document.getElementById('adm-emp-list');
-  const filtered=ADM_EMP_FILTER==='전체'?users:users.filter(function(u){ return u.team===ADM_EMP_FILTER; });
+  const filtered=ADM_EMP_FILTER==='전체'?ADM_ALL_USERS:ADM_ALL_USERS.filter(function(u){ return u.team===ADM_EMP_FILTER; });
+  const cntEl=document.getElementById('adm-emp-count');
+  if(cntEl) cntEl.textContent='총 '+filtered.length+'명';
   if(!filtered.length){ el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">해당 팀원 없음</p>'; return; }
   el.innerHTML=filtered.map(function(u){
     const uKey=safeKey(u.name);
-    return '<div class="member-row">'
-      +'<div class="m-info"><div class="m-name">'+u.name+'</div><div class="m-meta">'+u.team+' · '+u.rank+'</div></div>'
-      +'<span class="chip '+(u.role==='supervisor'?'chip-rd':'chip-bl')+'">'+( u.role==='supervisor'?'관리자':u.rank)+'</span>'
-      +'<button onclick="aAdminResetPw(\''+uKey+'\',\''+u.name+'\')" '
-      +'style="font-size:11px;padding:5px 8px;border:1px solid var(--orb);border-radius:6px;background:var(--orb);color:var(--or);cursor:pointer;touch-action:manipulation;margin-left:4px;">비번초기화</button>'
+    const isSup=u.role==='supervisor';
+    return '<div style="display:flex;align-items:center;gap:6px;padding:10px 0;border-bottom:1px solid var(--bd);">'
+      +'<div style="flex:1;min-width:0;">'
+      +'<div style="font-size:14px;font-weight:700;">'+u.name+'</div>'
+      +'<div style="font-size:11px;color:var(--sub);">'+u.team+' · '+u.rank+'</div>'
+      +'</div>'
+      +'<span class="chip '+(isSup?'chip-rd':'chip-bl')+'" style="flex-shrink:0;">'+(isSup?'관리자':'팀원')+'</span>'
+      +'<button onclick="openEmpEditModal(\''+uKey+'\')" '
+      +'style="flex-shrink:0;font-size:11px;padding:5px 8px;border:1px solid var(--prl);border-radius:6px;background:var(--prl);color:var(--pr);cursor:pointer;touch-action:manipulation;">✏️수정</button>'
+      +'<button onclick="openEmpDeleteModal(\''+uKey+'\',\''+u.name+'\')" '
+      +'style="flex-shrink:0;font-size:11px;padding:5px 8px;border:1px solid var(--rdb);border-radius:6px;background:var(--rdb);color:var(--rd);cursor:pointer;touch-action:manipulation;">🗑️삭제</button>'
       +'</div>';
   }).join('');
+}
+
+// ── 직원 삭제 ──
+function openEmpDeleteModal(key, name){
+  EMP_DELETE_KEY=key;
+  document.getElementById('emp-delete-sub').textContent='['+name+'] 직원을 삭제하시겠습니까?';
+  document.getElementById('emp-delete-modal').classList.add('open');
+}
+function closeEmpDeleteModal(){ document.getElementById('emp-delete-modal').classList.remove('open'); EMP_DELETE_KEY=null; }
+async function confirmDeleteEmployee(){
+  if(!EMP_DELETE_KEY) return;
+  try{
+    await DB.ref('users/'+EMP_DELETE_KEY).remove();
+    closeEmpDeleteModal();
+    alert2('삭제 완료','직원이 삭제되었습니다.');
+    aLoadEmployees();
+  }catch(e){ alert2('오류',e.message); }
+}
+
+// ── 직원 수정 ──
+function openEmpEditModal(key){
+  const u = ADM_ALL_USERS.find(function(x){ return safeKey(x.name)===key; });
+  if(!u) return;
+  EMP_EDIT_KEY=key;
+  document.getElementById('emp-edit-sub').textContent=u.name+' 정보를 수정합니다.';
+  document.getElementById('emp-edit-name').value=u.name;
+  document.getElementById('emp-edit-pw').value='';
+  document.getElementById('emp-edit-err').style.display='none';
+  // 팀/직책 셀렉트
+  const teamSel=document.getElementById('emp-edit-team');
+  const rankSel=document.getElementById('emp-edit-rank');
+  teamSel.innerHTML=CFG.teams.map(function(t){ return '<option'+(t===u.team?' selected':'')+'>'+t+'</option>'; }).join('');
+  rankSel.innerHTML=CFG.ranks.map(function(r){ return '<option'+(r===u.rank?' selected':'')+'>'+r+'</option>'; }).join('');
+  document.getElementById('emp-edit-modal').classList.add('open');
+}
+function closeEmpEditModal(){ document.getElementById('emp-edit-modal').classList.remove('open'); EMP_EDIT_KEY=null; }
+async function confirmEditEmployee(){
+  if(!EMP_EDIT_KEY) return;
+  const team  = document.getElementById('emp-edit-team').value;
+  const rank  = document.getElementById('emp-edit-rank').value;
+  const pw    = document.getElementById('emp-edit-pw').value;
+  const errEl = document.getElementById('emp-edit-err');
+  errEl.style.display='none';
+  if(pw && pw.length<4){ errEl.textContent='비밀번호는 4자 이상이어야 합니다.'; errEl.style.display='block'; return; }
+  try{
+    const upd={team, rank};
+    if(pw) upd.pw=pw;
+    await dbUpdate('users/'+EMP_EDIT_KEY, upd);
+    closeEmpEditModal();
+    alert2('수정 완료','직원 정보가 수정되었습니다.');
+    aLoadEmployees();
+  }catch(e){ errEl.textContent='오류: '+e.message; errEl.style.display='block'; }
 }
 
 function aAdminResetPw(key, name){
@@ -2510,6 +2662,8 @@ function closeAlert(){ document.getElementById('alert-ov').classList.remove('ope
 document.addEventListener('click', function(e){
   if(e.target.id==='pw-change-modal') closePwModal();
   if(e.target.id==='admin-pdf-modal') closeAdminPdfModal();
+  if(e.target.id==='emp-delete-modal') closeEmpDeleteModal();
+  if(e.target.id==='emp-edit-modal') closeEmpEditModal();
 });
 </script>
 </body>
