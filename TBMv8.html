@@ -153,6 +153,26 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
 /* 서명 미리보기 */
 .sig-preview{border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-top:10px;}
 .sig-preview-label{background:var(--gyb);padding:5px 10px;font-size:11px;color:var(--sub);font-weight:600;}
+/* 비번 변경 & 관리자 팝업 */
+.admin-emp-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--bd);}
+.admin-emp-row:last-child{border-bottom:none;}
+.admin-emp-info{flex:1;}
+.admin-emp-name{font-size:14px;font-weight:700;}
+.admin-emp-meta{font-size:11px;color:var(--sub);}
+.admin-action-btn{padding:6px 10px;font-size:11px;font-weight:700;border:none;border-radius:6px;cursor:pointer;touch-action:manipulation;white-space:nowrap;}
+.pw-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center;padding:20px;}
+.pw-modal-bg.open{display:flex;}
+.pw-modal{background:#fff;border-radius:18px;padding:24px 20px;width:100%;max-width:340px;}
+.pw-modal h3{font-size:16px;font-weight:800;color:var(--pr);margin-bottom:4px;}
+.pw-modal .pw-sub{font-size:12px;color:var(--sub);margin-bottom:18px;}
+/* 관리자 탭 추가 스타일 */
+.admin-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.admin-stat-box{border-radius:10px;padding:12px;text-align:center;}
+.admin-stat-num{font-size:24px;font-weight:800;}
+.admin-stat-label{font-size:11px;margin-top:2px;opacity:.8;}
+.pdf-hist-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--bd);cursor:pointer;touch-action:manipulation;}
+.pdf-hist-row:last-child{border-bottom:none;}
+.pdf-hist-row:active{background:var(--gyb);}
 </style>
 </head>
 <body>
@@ -429,6 +449,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
     <div class="tab2 on" id="dt0" onclick="dTab(0)">📊 전체 현황</div>
     <div class="tab2" id="dt1" onclick="dTab(1)">👥 직원 관리</div>
     <div class="tab2" id="dt2" onclick="dTab(2)">📅 TBM 이력</div>
+    <div class="tab2" id="dt3" onclick="dTab(3)">📥 PDF 인쇄</div>
   </div>
 
   <!-- 탭0: 전체 현황 -->
@@ -493,6 +514,29 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
       <div id="hist-sig-list" style="margin-top:12px;"></div>
     </div>
   </div>
+
+  <!-- 탭3: PDF 인쇄 -->
+  <div id="dc3" style="display:none;">
+    <div class="card">
+      <div class="card-title">📥 팀별 TBM 회의일지 PDF 인쇄</div>
+      <p style="font-size:13px;color:var(--sub);margin-bottom:12px;line-height:1.6;">팀과 날짜를 선택하여 TBM 회의일지를 PDF로 인쇄하세요.</p>
+      <div class="field">
+        <label>팀 선택</label>
+        <select id="pdf-tab-team" onchange="loadPdfTabList()" style="margin-bottom:4px;">
+          <option value="">-- 팀 선택 --</option>
+        </select>
+      </div>
+      <div id="pdf-tab-list"><p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">팀을 선택하면 TBM 목록이 표시됩니다.</p></div>
+    </div>
+    <div class="card" id="pdf-tab-detail-card" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="card-title" style="margin:0;" id="pdf-tab-detail-title">선택된 TBM</div>
+        <button class="btn btn-gr btn-sm" onclick="genPDFFromAdmin()" style="width:auto;min-width:90px;">🖨️ PDF 인쇄</button>
+      </div>
+      <div id="pdf-tab-detail-content"></div>
+      <div id="pdf-tab-sig-list" style="margin-top:12px;"></div>
+    </div>
+  </div>
 </div>
 
 <!-- 알림 팝업 -->
@@ -501,6 +545,48 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
     <h3 id="a-title">알림</h3>
     <p id="a-msg" style="font-size:13px;color:var(--sub);line-height:1.6;margin-bottom:14px;white-space:pre-wrap;"></p>
     <button class="btn btn-pr" onclick="closeAlert()">확인</button>
+  </div>
+</div>
+
+<!-- ══ 비밀번호 변경 팝업 ══ -->
+<div class="pw-modal-bg" id="pw-change-modal">
+  <div class="pw-modal">
+    <h3>🔑 비밀번호 변경</h3>
+    <div class="pw-sub" id="pw-modal-sub">본인 비밀번호를 변경합니다.</div>
+    <div class="field" id="pw-cur-field">
+      <label>현재 비밀번호</label>
+      <input type="password" id="pw-cur" placeholder="현재 비밀번호" autocomplete="current-password">
+    </div>
+    <div class="field">
+      <label>새 비밀번호</label>
+      <input type="password" id="pw-new" placeholder="4자 이상" autocomplete="new-password">
+    </div>
+    <div class="field">
+      <label>새 비밀번호 확인</label>
+      <input type="password" id="pw-new2" placeholder="다시 입력" autocomplete="new-password">
+    </div>
+    <div id="pw-err" style="display:none;background:var(--rdb);color:var(--rd);border-radius:8px;padding:10px;font-size:13px;margin-bottom:10px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-gy" onclick="closePwModal()" style="flex:1;">취소</button>
+      <button class="btn btn-pr" onclick="doChangePw()" style="flex:1;">변경하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 관리자 PDF 선택 모달 ══ -->
+<div class="pw-modal-bg" id="admin-pdf-modal">
+  <div class="pw-modal" style="max-width:400px;max-height:85vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <h3 style="margin:0;">📥 PDF 인쇄 선택</h3>
+      <button onclick="closeAdminPdfModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--sub);">×</button>
+    </div>
+    <div class="field">
+      <label>팀 선택</label>
+      <select id="apdf-team-sel" onchange="loadAdminPdfList()">
+        <option value="">-- 팀 선택 --</option>
+      </select>
+    </div>
+    <div id="apdf-list"><p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">팀을 선택하세요.</p></div>
   </div>
 </div>
 
@@ -525,7 +611,7 @@ const LS = localStorage;
 let DB = null;
 let CFG = {
   company:'', supervisor:'', supervisorPw:'0000',
-  teams:['A팀','B팀','C팀','D팀','E팀','F팀','G팀','H팀','I팀','J팀'],
+  teams:['공급관리팀','안전관리팀','고객지원팀','기술팀','영업팀','경영관리팀','재무관리팀','임실지사','부안지사','진안지사'],
   ranks:['사원','계장','대리','과장','차장','부장','본부장','이사']
 };
 let CUR = null; // 현재 로그인 사용자 {name, team, rank, role}
@@ -916,16 +1002,25 @@ function buildHomeMenus(){
       + '<div class="field"><label>관리감독자 로그인 비밀번호</label><input type="password" id="cfg-sup-pw" value="'+CFG.supervisorPw+'"></div>'
       + '<div class="field"><label>팀 목록 (쉼표 구분)</label><input type="text" id="cfg-teams" value="'+CFG.teams.join(',')+'"></div>'
       + '<div class="field"><label>직책 목록 (쉼표 구분)</label><input type="text" id="cfg-ranks" value="'+CFG.ranks.join(',')+'"></div>'
-      + '<button class="btn btn-pr btn-sm" onclick="saveCfg()">💾 설정 저장</button>'
+      + '<div style="display:flex;gap:8px;margin-top:8px;">'
+      + '<button class="btn btn-gr btn-sm" onclick="goDash();setTimeout(function(){ dTab(3); },100);" style="flex:1;">📥 PDF 인쇄</button>'
+      + '<button class="btn btn-ol btn-sm" onclick="openPwModal()" style="flex:1;">🔑 비밀번호 변경</button>'
       + '</div>'
-      + '<div style="padding:0 12px 8px;"><button class="btn btn-gy btn-sm" onclick="logout()">로그아웃</button></div>';
+      + '<button class="btn btn-pr btn-sm" onclick="saveCfg()" style="margin-top:8px;">💾 설정 저장</button>'
+      + '</div>'
+      + '<div style="padding:0 12px 8px;">'
+      + '<button class="btn btn-gy btn-sm" onclick="logout()">로그아웃</button>'
+      + '</div>';
 
   } else {
     // 일반 직원 — 모두 TBM 작성 + 서명 가능
     el.innerHTML = '<div style="padding:12px 12px 4px;">'
       + menuTBMCard() + menuSignCard()
       + '</div>'
-      + '<div style="padding:0 12px 8px;"><button class="btn btn-gy btn-sm" onclick="logout()">로그아웃 ('+CUR.name+')</button></div>';
+      + '<div style="padding:0 12px 8px;display:flex;gap:8px;">'
+      + '<button class="btn btn-ol btn-sm" onclick="openPwModal()" style="flex:1;">🔑 비밀번호 변경</button>'
+      + '<button class="btn btn-gy btn-sm" onclick="logout()" style="flex:1;">로그아웃 ('+CUR.name+')</button>'
+      + '</div>';
   }
 }
 
@@ -1334,15 +1429,23 @@ function goDash(){
 }
 
 function dTab(n){
-  [0,1,2].forEach(function(i){
-    document.getElementById('dt'+i).classList.toggle('on',i===n);
-    document.getElementById('dc'+i).style.display=i===n?'block':'none';
+  [0,1,2,3].forEach(function(i){
+    const dt=document.getElementById('dt'+i);
+    const dc=document.getElementById('dc'+i);
+    if(dt) dt.classList.toggle('on',i===n);
+    if(dc) dc.style.display=i===n?'block':'none';
   });
   if(n===0) loadDashStatus();
   if(n===1) loadEmployees();
   if(n===2){
     const sel=document.getElementById('hist-team-sel');
     sel.innerHTML='<option value="">팀 선택</option>'+CFG.teams.map(function(t){ return '<option>'+t+'</option>'; }).join('');
+  }
+  if(n===3){
+    const sel=document.getElementById('pdf-tab-team');
+    sel.innerHTML='<option value="">-- 팀 선택 --</option>'+CFG.teams.map(function(t){ return '<option>'+t+'</option>'; }).join('');
+    document.getElementById('pdf-tab-detail-card').style.display='none';
+    document.getElementById('pdf-tab-list').innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">팀을 선택하면 TBM 목록이 표시됩니다.</p>';
   }
 }
 
@@ -1443,9 +1546,14 @@ function renderEmployees(users){
     const uRole   = u.role||'member';
     const btnHtml = isSup
       ? '<span class="chip chip-rd">관리감독자</span>'
-      : '<button onclick="toggleEmpRole(\''+uKey+'\',\''+u.name+'\',\''+uRole+'\')" '
+      : '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">'
+        + '<button onclick="toggleEmpRole(\''+uKey+'\',\''+u.name+'\',\''+uRole+'\')" '
         +'style="font-size:11px;padding:4px 8px;border:1px solid var(--bd);border-radius:6px;'
-        +'background:#fff;cursor:pointer;touch-action:manipulation;margin-left:4px;">관리자 지정</button>';
+        +'background:#fff;cursor:pointer;touch-action:manipulation;">관리자 지정</button>'
+        + '<button onclick="adminResetPw(\''+uKey+'\',\''+u.name+'\')" '
+        +'style="font-size:11px;padding:4px 8px;border:1px solid var(--orb);border-radius:6px;'
+        +'background:var(--orb);color:var(--or);cursor:pointer;touch-action:manipulation;">비번 초기화</button>'
+        + '</div>';
     return '<div class="member-row">'
       +'<div class="m-info">'
       +'<div class="m-name">'+u.name+'</div>'
@@ -1636,6 +1744,182 @@ async function genPDF(){
 function handleUrl(){ /* 계정 로그인 방식 — URL 파라미터 불필요 */ }
 
 // ══════════════════════════════════════════════════════════
+// 비밀번호 변경 (본인)
+// ══════════════════════════════════════════════════════════
+let PW_TARGET_KEY = null; // null = 본인, string = 관리자가 타인 초기화
+let PW_IS_ADMIN_RESET = false;
+
+function openPwModal(){
+  PW_TARGET_KEY = null;
+  PW_IS_ADMIN_RESET = false;
+  document.getElementById('pw-modal-sub').textContent = '본인 비밀번호를 변경합니다.';
+  document.getElementById('pw-cur-field').style.display = 'block';
+  document.getElementById('pw-cur').value = '';
+  document.getElementById('pw-new').value = '';
+  document.getElementById('pw-new2').value = '';
+  document.getElementById('pw-err').style.display = 'none';
+  document.getElementById('pw-change-modal').classList.add('open');
+}
+
+function closePwModal(){
+  document.getElementById('pw-change-modal').classList.remove('open');
+}
+
+function adminResetPw(key, name){
+  PW_TARGET_KEY = key;
+  PW_IS_ADMIN_RESET = true;
+  document.getElementById('pw-modal-sub').textContent = '【관리자】 ' + name + '의 비밀번호를 초기화합니다.';
+  document.getElementById('pw-cur-field').style.display = 'none';
+  document.getElementById('pw-new').value = '';
+  document.getElementById('pw-new2').value = '';
+  document.getElementById('pw-err').style.display = 'none';
+  document.getElementById('pw-change-modal').classList.add('open');
+}
+
+async function doChangePw(){
+  const newPw  = document.getElementById('pw-new').value;
+  const newPw2 = document.getElementById('pw-new2').value;
+  const errEl  = document.getElementById('pw-err');
+  errEl.style.display = 'none';
+
+  function showPwErr(msg){ errEl.textContent=msg; errEl.style.display='block'; }
+
+  if(newPw.length < 4){ showPwErr('새 비밀번호는 4자 이상이어야 합니다.'); return; }
+  if(newPw !== newPw2){ showPwErr('새 비밀번호가 일치하지 않습니다.'); return; }
+
+  if(PW_IS_ADMIN_RESET){
+    // 관리자 초기화 — 현재 비번 확인 불필요
+    try{
+      await dbUpdate('users/'+PW_TARGET_KEY, {pw: newPw});
+      closePwModal();
+      alert2('초기화 완료', '비밀번호가 초기화되었습니다.\n새 비밀번호: ' + newPw);
+    }catch(e){ showPwErr('오류: '+e.message); }
+    return;
+  }
+
+  // 본인 변경 — 현재 비번 확인
+  const curPw = document.getElementById('pw-cur').value;
+  if(!curPw){ showPwErr('현재 비밀번호를 입력해주세요.'); return; }
+
+  if(CUR.role === 'supervisor'){
+    // 관리감독자는 supervisorPw 확인
+    if(curPw !== CFG.supervisorPw){ showPwErr('현재 비밀번호가 틀렸습니다.'); return; }
+    CFG.supervisorPw = newPw;
+    LS.setItem('tbm_cfg', JSON.stringify(CFG));
+    closePwModal();
+    alert2('변경 완료', '관리감독자 비밀번호가 변경되었습니다.');
+    return;
+  }
+
+  // 일반 직원
+  try{
+    const userData = await dbGet('users/'+safeKey(CUR.name));
+    if(!userData){ showPwErr('사용자 정보를 찾을 수 없습니다.'); return; }
+    if(userData.pw !== curPw){ showPwErr('현재 비밀번호가 틀렸습니다.'); return; }
+    await dbUpdate('users/'+safeKey(CUR.name), {pw: newPw});
+    closePwModal();
+    alert2('변경 완료', '비밀번호가 성공적으로 변경되었습니다.');
+  }catch(e){ showPwErr('오류: '+e.message); }
+}
+
+// ══════════════════════════════════════════════════════════
+// 관리자 PDF 인쇄 탭
+// ══════════════════════════════════════════════════════════
+let ADMIN_PDF_TBM = null, ADMIN_PDF_SIGS = [], ADMIN_PDF_ASSIGNED = [], ADMIN_PDF_TEAM = '';
+
+async function loadPdfTabList(){
+  const team = document.getElementById('pdf-tab-team').value;
+  const list  = document.getElementById('pdf-tab-list');
+  document.getElementById('pdf-tab-detail-card').style.display = 'none';
+  if(!team){ list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">팀을 선택하세요.</p>'; return; }
+  list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>불러오는 중...</p>';
+  try{
+    const data = await dbGet('tbm/'+team);
+    if(!data||!Object.keys(data).length){ list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">저장된 TBM이 없습니다.</p>'; return; }
+    const entries = Object.values(data).filter(Boolean).sort(function(a,b){ return b.date>a.date?1:-1; });
+    list.innerHTML = entries.map(function(tbm){
+      return '<div class="pdf-hist-row" onclick="loadAdminPdfDetail(\''+team+'\',\''+tbm.date+'\')">'
+        +'<div style="font-size:20px;margin-right:4px;">📄</div>'
+        +'<div style="flex:1;">'
+        +'<div style="font-size:13px;font-weight:700;color:var(--pr);">'+tbm.date+(tbm.time?' '+tbm.time:'')+'</div>'
+        +'<div style="font-size:11px;color:var(--sub);margin-top:2px;">'+(tbm.loc||'')+' · '+(tbm.work||'').slice(0,24)+'</div>'
+        +'<div style="font-size:11px;color:var(--sub);">진행자: '+(tbm.lead||'-')+'</div>'
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--pr);font-weight:700;">선택 →</div>'
+        +'</div>';
+    }).join('');
+  }catch(e){ list.innerHTML='<p style="color:var(--rd);font-size:13px;text-align:center;padding:14px;">불러오기 실패</p>'; }
+}
+
+async function loadAdminPdfDetail(team, date){
+  ADMIN_PDF_TEAM = team;
+  const card = document.getElementById('pdf-tab-detail-card');
+  card.style.display = 'block';
+  document.getElementById('pdf-tab-detail-title').textContent = team+' — '+date;
+  document.getElementById('pdf-tab-detail-content').innerHTML = '<span class="spin"></span>불러오는 중...';
+  try{
+    const [tbmData, sigsData, aData] = await Promise.all([
+      dbGet('tbm/'+team+'/'+dbKey(date)),
+      dbGet('sigs/'+team+'/'+dbKey(date)),
+      dbGet('assignments/'+team+'/'+dbKey(date))
+    ]);
+    ADMIN_PDF_TBM      = tbmData||{};
+    ADMIN_PDF_SIGS     = sigsData ? Object.values(sigsData).filter(Boolean) : [];
+    ADMIN_PDF_ASSIGNED = aData    ? Object.values(aData).filter(Boolean)    : [];
+
+    document.getElementById('pdf-tab-detail-content').innerHTML = renderTBMHtml(ADMIN_PDF_TBM);
+    const signed = new Set(ADMIN_PDF_SIGS.map(function(s){ return s.name; }));
+    const sigCount = ADMIN_PDF_SIGS.filter(function(s){ return s.sigImg; }).length;
+    document.getElementById('pdf-tab-sig-list').innerHTML =
+      '<div style="font-size:13px;font-weight:700;color:var(--pr);margin-bottom:8px;">✍️ 서명 현황: '+sigCount+'명 완료 / 전체 '+ADMIN_PDF_ASSIGNED.length+'명</div>'
+      +(ADMIN_PDF_ASSIGNED.length ? ADMIN_PDF_ASSIGNED.map(function(m){
+        const sig = ADMIN_PDF_SIGS.find(function(s){ return s.name===m.name; });
+        return '<div class="member-row">'
+          +'<div class="m-check '+(sig?'done':'')+'">'+( sig?'✓':'')+'</div>'
+          +'<div class="m-info"><div class="m-name">'+m.name+'</div>'
+          +'<div class="m-meta">'+m.rank+' · '+(sig?sig.time:'미서명')+'</div></div>'
+          +(sig&&sig.sigImg?'<img class="m-sig" src="'+sig.sigImg+'" alt="서명">':'<span class="chip chip-or">미서명</span>')
+          +'</div>';
+      }).join('') : '<p style="font-size:13px;color:var(--sub);text-align:center;padding:12px;">참여자 없음</p>');
+    card.scrollIntoView({behavior:'smooth'});
+  }catch(e){ document.getElementById('pdf-tab-detail-content').innerHTML='<p style="color:var(--rd);font-size:13px;">불러오기 실패</p>'; }
+}
+
+async function genPDFFromAdmin(){
+  if(!ADMIN_PDF_TBM||!ADMIN_PDF_TBM.date){ alert2('선택 필요','목록에서 TBM을 선택해주세요.'); return; }
+  const prev = {tbm:TBM, sigs:SIGS, assigned:ASSIGNED, team:LEAD_TEAM};
+  TBM=ADMIN_PDF_TBM; SIGS=ADMIN_PDF_SIGS; ASSIGNED=ADMIN_PDF_ASSIGNED; LEAD_TEAM=ADMIN_PDF_TEAM;
+  await genPDF();
+  TBM=prev.tbm; SIGS=prev.sigs; ASSIGNED=prev.assigned; LEAD_TEAM=prev.team;
+}
+
+function openAdminPdfModal(){
+  const sel=document.getElementById('apdf-team-sel');
+  sel.innerHTML='<option value="">-- 팀 선택 --</option>'+CFG.teams.map(function(t){ return '<option>'+t+'</option>'; }).join('');
+  document.getElementById('apdf-list').innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">팀을 선택하세요.</p>';
+  document.getElementById('admin-pdf-modal').classList.add('open');
+}
+function closeAdminPdfModal(){ document.getElementById('admin-pdf-modal').classList.remove('open'); }
+async function loadAdminPdfList(){
+  const team=document.getElementById('apdf-team-sel').value;
+  const list=document.getElementById('apdf-list');
+  if(!team){ list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">팀을 선택하세요.</p>'; return; }
+  list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>불러오는 중...</p>';
+  try{
+    const data=await dbGet('tbm/'+team);
+    if(!data||!Object.keys(data).length){ list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">저장된 TBM 없음</p>'; return; }
+    const entries=Object.values(data).filter(Boolean).sort(function(a,b){ return b.date>a.date?1:-1; });
+    list.innerHTML=entries.map(function(tbm){
+      return '<div style="padding:10px 0;border-bottom:1px solid var(--bd);cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="closeAdminPdfModal();loadAdminPdfDetail(\''+team+'\',\''+tbm.date+'\');dTab(3);">'
+        +'<div style="flex:1;">'
+        +'<div style="font-size:13px;font-weight:700;">'+tbm.date+(tbm.time?' '+tbm.time:'')+'</div>'
+        +'<div style="font-size:11px;color:var(--sub);">'+(tbm.loc||'')+' · '+(tbm.work||'').slice(0,20)+'</div>'
+        +'</div><span style="color:var(--pr);font-size:12px;font-weight:700;">선택</span></div>';
+    }).join('');
+  }catch(e){ list.innerHTML='<p style="color:var(--rd);font-size:13px;text-align:center;padding:14px;">불러오기 실패</p>'; }
+}
+
+// ══════════════════════════════════════════════════════════
 // 클립보드 복사 (iOS/Android 호환)
 // ══════════════════════════════════════════════════════════
 function copyToClipboard(text, msg){
@@ -1661,6 +1945,12 @@ function copyNudge(){ copyToClipboard(document.getElementById('dash-nudge-msg').
 // ══════════════════════════════════════════════════════════
 function alert2(t,m){ document.getElementById('a-title').textContent=t; document.getElementById('a-msg').textContent=m; document.getElementById('alert-ov').classList.add('open'); }
 function closeAlert(){ document.getElementById('alert-ov').classList.remove('open'); }
+
+// 모달 배경 클릭 시 닫기
+document.addEventListener('click', function(e){
+  if(e.target.id==='pw-change-modal') closePwModal();
+  if(e.target.id==='admin-pdf-modal') closeAdminPdfModal();
+});
 </script>
 </body>
 </html>
