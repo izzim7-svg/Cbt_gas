@@ -565,9 +565,10 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div class="card-title" style="margin:0;">📅 TBM 이력 조회</div>
         <select id="hist-team-sel" onchange="loadHistory()" style="width:auto;padding:7px 10px;font-size:13px;">
+          <option value="__ALL__">📋 전체 팀</option>
         </select>
       </div>
-      <div id="hist-list"><p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">팀을 선택하면 이력이 표시됩니다.</p></div>
+      <div id="hist-list"><p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>불러오는 중...</p></div>
     </div>
     <div class="card" id="hist-detail-card" style="display:none;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -1904,9 +1905,13 @@ function copyLeadNudge(){
 // ══════════════════════════════════════════════════════════
 async function goMember(){
   if(!CUR){ go('signin'); return; }
-  document.getElementById('m-badge').textContent = CUR.name+' · '+CUR.team;
+
+  // 관리감독자처럼 팀이 없는 경우 → 팀 선택 후 로드
+  const memberTeam = CUR.team || '';
+
+  document.getElementById('m-badge').textContent = CUR.name+' · '+(memberTeam||'팀선택필요');
   document.getElementById('s-name').textContent  = CUR.name;
-  document.getElementById('s-meta').textContent  = CUR.team+' · '+CUR.rank;
+  document.getElementById('s-meta').textContent  = (memberTeam||'-')+' · '+CUR.rank;
   document.getElementById('ms-none').style.display='none';
   document.getElementById('ms-main').style.display='none';
   document.getElementById('ms-done').style.display='none';
@@ -1916,17 +1921,49 @@ async function goMember(){
   clearSig();
   go('member');
 
+  // 팀이 없으면(관리감독자 등) 팀 선택 UI 표시
+  const content=document.getElementById('m-tbm-content');
+  if(!memberTeam){
+    content.innerHTML=
+      '<div style="background:var(--prl);border-radius:10px;padding:14px;margin-bottom:8px;">'
+      +'<div style="font-size:13px;font-weight:700;color:var(--pr);margin-bottom:8px;">📋 조회할 팀을 선택해주세요</div>'
+      +'<select id="member-team-sel" style="width:100%;padding:10px;border:1.5px solid var(--bd);border-radius:8px;font-size:14px;">'
+      +'<option value="">-- 팀 선택 --</option>'
+      +CFG.teams.map(function(t){ return '<option>'+t+'</option>'; }).join('')
+      +'</select>'
+      +'<button class="btn btn-pr btn-sm" onclick="loadMemberTBMByTeam()" style="margin-top:8px;">TBM 불러오기</button>'
+      +'</div>';
+    document.getElementById('ms-main').style.display='block';
+    document.getElementById('ms-sign-section').style.display='none';
+    return;
+  }
+
+  await loadMemberTBM(memberTeam);
+}
+
+async function loadMemberTBMByTeam(){
+  const sel=document.getElementById('member-team-sel');
+  if(!sel||!sel.value){ alert2('팀 선택','팀을 선택해주세요.'); return; }
+  const team=sel.value;
+  document.getElementById('ms-sign-section').style.display='block';
+  document.getElementById('m-badge').textContent = CUR.name+' · '+team;
+  document.getElementById('s-meta').textContent  = team+' · '+CUR.rank;
+  await loadMemberTBM(team);
+}
+
+async function loadMemberTBM(team){
   // 오늘 TBM 로드
   const today=todayStr();
   const content=document.getElementById('m-tbm-content');
   content.innerHTML='<p style="color:var(--sub);font-size:13px;"><span class="spin"></span>교육 내용 불러오는 중...</p>';
   try{
-    const tbmData=await dbGet('tbm/'+CUR.team+'/'+dbKey(today));
-    if(!tbmData){ document.getElementById('ms-none').style.display='block'; return; }
+    const tbmData=await dbGet('tbm/'+team+'/'+dbKey(today));
+    if(!tbmData){ document.getElementById('ms-none').style.display='block';
+      document.getElementById('ms-main').style.display='none'; return; }
     TBM=tbmData;
 
     // 배정 확인
-    const aData=await dbGet('assignments/'+CUR.team+'/'+dbKey(today));
+    const aData=await dbGet('assignments/'+team+'/'+dbKey(today));
     const assigned=aData?Object.values(aData).filter(Boolean):[];
     const isAssigned=assigned.some(function(a){ return a.name===CUR.name; });
     if(!isAssigned && assigned.length>0){
@@ -1937,7 +1974,7 @@ async function goMember(){
     }
 
     // 이미 서명했는지 확인
-    const sigData=await dbGet('sigs/'+CUR.team+'/'+dbKey(today)+'/'+safeKey(CUR.name));
+    const sigData=await dbGet('sigs/'+team+'/'+dbKey(today)+'/'+safeKey(CUR.name));
     if(sigData){
       document.getElementById('already-signed-banner').style.display='block';
       document.getElementById('already-signed-time').textContent='서명 시각: '+sigData.time;
@@ -2029,19 +2066,22 @@ async function submitSig(){
     alert2('확인 필요','위의 모든 항목에 체크해주세요.'); return;
   }
   if(sigEmpty()){ alert2('서명 필요','서명 패드에 서명해 주세요.'); return; }
+  // 팀이 없는 경우(관리감독자 등) TBM에서 팀 가져오기
+  const sigTeam = CUR.team || (TBM&&TBM.team) || '';
+  if(!sigTeam){ alert2('오류','팀 정보가 없습니다. 다시 시도해주세요.'); return; }
   const cv=document.getElementById('sigCanvas');
   const sigImg=cv.toDataURL('image/png');
   const now=new Date();
   const time=now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
   const date=TBM?TBM.date:todayStr();
   const record={
-    name:CUR.name, team:CUR.team, rank:CUR.rank,
+    name:CUR.name, team:sigTeam, rank:CUR.rank,
     time, date, sigImg, work:TBM?.work||'', loc:TBM?.loc||'',
     supervisor:TBM?.supervisor||CFG.supervisor||'', savedAt:Date.now()
   };
   setSS('ing','서명 저장 중...');
   try{
-    await dbSet('sigs/'+CUR.team+'/'+dbKey(date)+'/'+safeKey(CUR.name), record);
+    await dbSet('sigs/'+sigTeam+'/'+dbKey(date)+'/'+safeKey(CUR.name), record);
     setSS('ok','서명 저장 완료 ✓');
     // 완료 화면
     document.getElementById('done-msg').innerHTML=
@@ -2071,7 +2111,9 @@ function dTab(n){
   if(n===1) loadEmployees();
   if(n===2){
     const sel=document.getElementById('hist-team-sel');
-    sel.innerHTML='<option value="">팀 선택</option>'+CFG.teams.map(function(t){ return '<option>'+t+'</option>'; }).join('');
+    sel.innerHTML='<option value="__ALL__">📋 전체 팀</option>'+CFG.teams.map(function(t){ return '<option>'+t+'</option>'; }).join('');
+    document.getElementById('hist-detail-card').style.display='none';
+    loadHistory(); // 전체 탭 자동 로드
   }
   if(n===3){
     const sel=document.getElementById('pdf-tab-team');
@@ -2213,26 +2255,38 @@ async function toggleEmpRole(key, name, currentRole){
 // ══════════════════════════════════════════════════════════
 // TBM 이력
 // ══════════════════════════════════════════════════════════
+let HIST_TEAM_FOR_PDF = ''; // 이력 상세 클릭 시 저장
+
 async function loadHistory(){
-  const team=document.getElementById('hist-team-sel').value;
+  const teamVal=document.getElementById('hist-team-sel').value;
   const list=document.getElementById('hist-list');
   document.getElementById('hist-detail-card').style.display='none';
-  if(!team){ list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">팀을 선택해주세요.</p>'; return; }
   list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>불러오는 중...</p>';
+
+  const teamsToLoad = (!teamVal||teamVal==='__ALL__') ? CFG.teams : [teamVal];
   try{
-    const data=await dbGet('tbm/'+team);
-    if(!data||!Object.keys(data).length){ list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">저장된 TBM이 없습니다.</p>'; return; }
-    const entries=Object.values(data).filter(Boolean).sort(function(a,b){ return b.date>a.date?1:-1; });
+    const results = await Promise.all(teamsToLoad.map(async function(team){
+      const data = await dbGet('tbm/'+team);
+      if(!data) return [];
+      return Object.values(data).filter(Boolean).map(function(tbm){ return Object.assign({},tbm,{_team:team}); });
+    }));
+    const entries = [].concat.apply([],results).sort(function(a,b){ return b.date>a.date?1:-1; });
+    if(!entries.length){ list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">저장된 TBM이 없습니다.</p>'; return; }
     list.innerHTML=entries.map(function(tbm){
-      return '<div class="hist-row" onclick="loadHistDetail(\''+team+'\',\''+tbm.date+'\')">'+
-        '<div class="hist-date">'+tbm.date+' '+( tbm.time||'')+'</div>'+
-        '<div class="hist-info">'+( tbm.loc||'')+' · '+(tbm.work||'').slice(0,20)+'</div>'+
-        '<div class="hist-info">진행자: '+(tbm.lead||'-')+'</div></div>';
+      return '<div class="hist-row" onclick="loadHistDetail(\''+tbm._team+'\',\''+tbm.date+'\')">'
+        +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">'
+        +'<span class="hist-date">'+tbm.date+' '+(tbm.time||'')+'</span>'
+        +'<span style="background:var(--prl);color:var(--pr);padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;">'+tbm._team+'</span>'
+        +'</div>'
+        +'<div class="hist-info">'+(tbm.loc||'')+' · '+(tbm.work||'').slice(0,20)+'</div>'
+        +'<div class="hist-info">진행자: '+(tbm.lead||'-')+'</div>'
+        +'</div>';
     }).join('');
   }catch(e){ list.innerHTML='<p style="color:var(--rd);font-size:13px;text-align:center;padding:14px;">불러오기 실패</p>'; }
 }
 
 async function loadHistDetail(team, date){
+  HIST_TEAM_FOR_PDF = team; // PDF 출력용 팀 저장
   const card=document.getElementById('hist-detail-card');
   card.style.display='block';
   document.getElementById('hist-detail-title').textContent=team+' - '+date;
@@ -2246,7 +2300,6 @@ async function loadHistDetail(team, date){
     HIST_TBM=tbmData||{}; HIST_SIGS=sigsData?Object.values(sigsData).filter(Boolean):[];
     const assigned=aData?Object.values(aData).filter(Boolean):[];
     document.getElementById('hist-detail-content').innerHTML=renderTBMHtml(HIST_TBM);
-    const signed=new Set(HIST_SIGS.map(function(s){ return s.name; }));
     document.getElementById('hist-sig-list').innerHTML=
       '<div style="font-size:13px;font-weight:700;color:var(--pr);margin-bottom:8px;">✍️ 서명자 ('+assigned.filter(function(m){ return HIST_SIGS.find(function(s){ return s.name===m.name; }); }).length+'명) / 참여자 ('+assigned.length+'명)</div>'
       +(assigned.length?assigned.map(function(m){
@@ -2266,7 +2319,7 @@ async function genPDFFromHistory(){
   if(!HIST_TBM||!HIST_TBM.date){ alert2('선택 필요','이력 항목을 선택해주세요.'); return; }
   const prev={tbm:TBM, sigs:SIGS, assigned:ASSIGNED, team:LEAD_TEAM};
   TBM=HIST_TBM; SIGS=HIST_SIGS;
-  const team=document.getElementById('hist-team-sel').value;
+  const team=HIST_TEAM_FOR_PDF;
   const aData=await dbGet('assignments/'+team+'/'+dbKey(HIST_TBM.date));
   ASSIGNED=aData?Object.values(aData).filter(Boolean):[];
   LEAD_TEAM=team;
