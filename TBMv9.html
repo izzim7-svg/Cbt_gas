@@ -144,7 +144,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
 .signin-title{font-size:20px;font-weight:800;text-align:center;color:var(--pr);margin-bottom:4px;}
 .signin-sub{font-size:12px;text-align:center;color:var(--sub);margin-bottom:22px;}
 .tab-switch{display:flex;background:var(--gyb);border-radius:10px;padding:3px;margin-bottom:18px;}
-.tab-sw-btn{flex:1;padding:9px;text-align:center;font-size:13px;font-weight:700;border:none;background:transparent;border-radius:8px;cursor:pointer;color:var(--sub);touch-action:manipulation;}
+.tab-sw-btn{flex:1;padding:9px 4px;text-align:center;font-size:12px;font-weight:700;border:none;background:transparent;border-radius:8px;cursor:pointer;color:var(--sub);touch-action:manipulation;}
 .tab-sw-btn.on{background:#fff;color:var(--pr);box-shadow:0 1px 4px rgba(0,0,0,.1);}
 /* 팀원 배정 선택 */
 .assign-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd);}
@@ -188,6 +188,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
       <div class="tab-switch">
         <button class="tab-sw-btn on" id="sw-login" onclick="switchSignin('login')">로그인</button>
         <button class="tab-sw-btn" id="sw-join" onclick="switchSignin('join')">첫 가입</button>
+        <button class="tab-sw-btn" id="sw-sup" onclick="switchSignin('sup')">관리자 등록</button>
       </div>
 
       <!-- 로그인 -->
@@ -211,12 +212,28 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
         <button class="btn btn-gr" onclick="doJoin()" style="margin-top:4px;">가입하기</button>
         <div id="join-err" style="display:none;background:var(--rdb);color:var(--rd);border-radius:8px;padding:10px;font-size:13px;margin-top:10px;text-align:center;"></div>
       </div>
+
+      <!-- 관리감독자 등록 -->
+      <div id="sup-form" style="display:none;">
+        <div style="background:var(--rdb);border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--rd);line-height:1.6;">
+          🔐 관리감독자 등록은 <strong>등록 비밀번호</strong>를 알고 있는 담당자만 가능합니다.
+        </div>
+        <div class="field"><label>등록 비밀번호</label><input type="password" id="sup-reg-pw" placeholder="등록 비밀번호 입력"></div>
+        <div style="height:1px;background:var(--bd);margin:14px 0;"></div>
+        <div class="field"><label>관리감독자 이름</label><input type="text" id="sup-name" placeholder="홍길동" maxlength="20" autocomplete="name"></div>
+        <div class="field"><label>회사명</label><input type="text" id="sup-company" placeholder="(주)안전건설"></div>
+        <div class="field"><label>로그인 비밀번호 설정</label><input type="password" id="sup-pw" placeholder="4자 이상" autocomplete="new-password"></div>
+        <div class="field"><label>로그인 비밀번호 확인</label><input type="password" id="sup-pw2" placeholder="다시 입력" autocomplete="new-password"></div>
+        <button class="btn btn-rd" onclick="doRegSupervisor()" style="margin-top:4px;">🛡️ 관리감독자 등록</button>
+        <div id="sup-err" style="display:none;background:var(--rdb);color:var(--rd);border-radius:8px;padding:10px;font-size:13px;margin-top:10px;text-align:center;"></div>
+      </div>
     </div>
     <div style="text-align:center;color:rgba(255,255,255,.5);font-size:11px;margin-top:14px;">산업안전보건법 제29조 TBM 교육 이행 기록</div>
+    <div style="text-align:center;margin-top:10px;">
+      <button onclick="go('admin-login')" style="background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.5);border-radius:8px;padding:7px 18px;font-size:11px;font-weight:600;cursor:pointer;touch-action:manipulation;">🔐 관리자 모드</button>
+    </div>
   </div>
 </div>
-
-<!-- ══ 홈 ══ -->
 <div id="home" class="screen">
   <div class="home-hero">
     <div style="font-size:36px;margin-bottom:4px;">🦺</div>
@@ -539,6 +556,154 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
   </div>
 </div>
 
+<!-- ══ 관리자 로그인 화면 ══ -->
+<div id="admin-login" class="screen" style="padding-bottom:0;">
+  <div class="signin-wrap" style="background:linear-gradient(160deg,#1a1a2e,#16213e,#0f3460);">
+    <div class="signin-card">
+      <div class="signin-logo">🔐</div>
+      <div class="signin-title" style="color:var(--rd);">관리자 모드</div>
+      <div class="signin-sub">TBM 전체 현황 · 회의일지 출력 · 직원 관리</div>
+      <div style="height:1px;background:var(--bd);margin:16px 0;"></div>
+      <div class="field"><label>관리자 비밀번호</label><input type="password" id="adm-pw" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter')doAdminLogin()"></div>
+      <div id="adm-login-err" style="display:none;background:var(--rdb);color:var(--rd);border-radius:8px;padding:10px;font-size:13px;margin-bottom:10px;text-align:center;"></div>
+      <button class="btn btn-rd" onclick="doAdminLogin()">🔐 관리자 접속</button>
+      <button class="btn btn-gy" onclick="go('signin')" style="margin-top:10px;">← 일반 로그인으로</button>
+    </div>
+    <div style="text-align:center;color:rgba(255,255,255,.4);font-size:11px;margin-top:14px;">관리자 전용 · 비인가자 접근 금지</div>
+  </div>
+</div>
+
+<!-- ══ 관리자 대시보드 (독립) ══ -->
+<div id="admin-dash" class="screen">
+  <div class="top-bar" style="background:linear-gradient(90deg,#1a1a2e,#dc2626);">
+    <button onclick="goAdminBack()" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;touch-action:manipulation;">←</button>
+    <h1>🔐 관리자 모드</h1>
+    <button onclick="logoutAdmin()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;touch-action:manipulation;">로그아웃</button>
+  </div>
+
+  <div class="tab-bar2" style="overflow-x:auto;white-space:nowrap;display:flex;">
+    <div class="tab2 on" id="adt0" onclick="aTab(0)" style="flex-shrink:0;">📊 현황</div>
+    <div class="tab2" id="adt1" onclick="aTab(1)" style="flex-shrink:0;">🖨️ 회의일지</div>
+    <div class="tab2" id="adt2" onclick="aTab(2)" style="flex-shrink:0;">👥 직원</div>
+    <div class="tab2" id="adt3" onclick="aTab(3)" style="flex-shrink:0;">📅 이력</div>
+    <div class="tab2" id="adt4" onclick="aTab(4)" style="flex-shrink:0;">⚙️ 설정</div>
+  </div>
+
+  <!-- 탭0: 전체 현황 -->
+  <div id="adc0">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="card-title" style="margin:0;">📊 오늘 전 팀 서명 현황</div>
+        <button class="btn btn-gy btn-sm" onclick="aLoadStatus()" style="width:auto;">🔄 새로고침</button>
+      </div>
+      <div id="adm-date-info" style="font-size:12px;color:var(--sub);margin-bottom:10px;"></div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+        <div style="flex:1;background:var(--prl);border-radius:10px;padding:12px;text-align:center;min-width:70px;">
+          <div style="font-size:22px;font-weight:800;color:var(--pr);" id="adm-stat-teams">-</div>
+          <div style="font-size:11px;color:var(--sub);">활성 팀</div>
+        </div>
+        <div style="flex:1;background:var(--grb);border-radius:10px;padding:12px;text-align:center;min-width:70px;">
+          <div style="font-size:22px;font-weight:800;color:var(--gr);" id="adm-stat-done">-</div>
+          <div style="font-size:11px;color:var(--sub);">완료 팀</div>
+        </div>
+        <div style="flex:1;background:var(--orb);border-radius:10px;padding:12px;text-align:center;min-width:70px;">
+          <div style="font-size:22px;font-weight:800;color:var(--or);" id="adm-stat-sigs">-</div>
+          <div style="font-size:11px;color:var(--sub);">총 서명자</div>
+        </div>
+        <div style="flex:1;background:var(--rdb);border-radius:10px;padding:12px;text-align:center;min-width:70px;">
+          <div style="font-size:22px;font-weight:800;color:var(--rd);" id="adm-stat-unsigned">-</div>
+          <div style="font-size:11px;color:var(--sub);">미서명자</div>
+        </div>
+      </div>
+      <div id="adm-team-list"><p style="font-size:13px;color:var(--sub);text-align:center;padding:20px;"><span class="spin"></span> 불러오는 중...</p></div>
+    </div>
+    <div class="card" id="adm-nudge-card" style="display:none;">
+      <div class="card-title">📣 미서명자 독촉 메시지</div>
+      <div id="adm-nudge-msg" style="background:var(--gyb);border-radius:8px;padding:10px;font-size:12px;line-height:1.8;white-space:pre-wrap;"></div>
+      <button class="btn btn-ol btn-sm" onclick="copyAdmNudge()" style="margin-top:8px;">📋 복사 (카카오톡용)</button>
+    </div>
+  </div>
+
+  <!-- 탭1: 회의일지 PDF 인쇄 -->
+  <div id="adc1" style="display:none;">
+    <div class="card">
+      <div class="card-title">🖨️ TBM 회의일지 PDF 출력</div>
+      <p style="font-size:13px;color:var(--sub);margin-bottom:12px;line-height:1.6;">팀 선택 → 날짜 선택 → PDF 출력</p>
+      <div class="field">
+        <label>팀 선택</label>
+        <select id="apdf2-team" onchange="aLoadPdfList()">
+          <option value="">-- 팀 선택 --</option>
+        </select>
+      </div>
+      <div id="apdf2-list"><p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">팀을 선택하세요.</p></div>
+    </div>
+    <div class="card" id="apdf2-detail-card" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="card-title" style="margin:0;" id="apdf2-detail-title">선택된 TBM</div>
+        <button class="btn btn-rd btn-sm" onclick="aGenPDF()" style="width:auto;min-width:100px;">🖨️ PDF 출력</button>
+      </div>
+      <div id="apdf2-detail-content"></div>
+      <div id="apdf2-sig-list" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <!-- 탭2: 직원 관리 -->
+  <div id="adc2" style="display:none;">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="card-title" style="margin:0;">👥 가입된 직원 목록</div>
+        <button class="btn btn-gy btn-sm" onclick="aLoadEmployees()" style="width:auto;">🔄</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;" id="adm-emp-filter-bar"></div>
+      <div id="adm-emp-list"><p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>불러오는 중...</p></div>
+    </div>
+  </div>
+
+  <!-- 탭3: TBM 이력 -->
+  <div id="adc3" style="display:none;">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="card-title" style="margin:0;">📅 TBM 이력 전체 조회</div>
+        <select id="adm-hist-team" onchange="aLoadHistory()" style="width:auto;padding:7px 10px;font-size:13px;"></select>
+      </div>
+      <div id="adm-hist-list"><p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">팀을 선택하면 이력이 표시됩니다.</p></div>
+    </div>
+    <div class="card" id="adm-hist-detail-card" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="card-title" style="margin:0;" id="adm-hist-detail-title">이력 상세</div>
+        <button class="btn btn-rd btn-sm" onclick="aGenPDFFromHistory()" style="width:auto;">🖨️ PDF</button>
+      </div>
+      <div id="adm-hist-detail-content"></div>
+      <div id="adm-hist-sig-list" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <!-- 탭4: 설정 -->
+  <div id="adc4" style="display:none;">
+    <div class="card">
+      <div class="card-title">⚙️ 시스템 설정</div>
+      <div class="field"><label>회사명</label><input type="text" id="adm-cfg-company" placeholder="(주)안전건설"></div>
+      <div class="field"><label>관리감독자 이름</label><input type="text" id="adm-cfg-supervisor" placeholder="홍길동"></div>
+      <div class="field"><label>관리감독자 로그인 비밀번호</label><input type="password" id="adm-cfg-suppw"></div>
+      <div style="height:1px;background:var(--bd);margin:10px 0;"></div>
+      <div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:6px;">🔐 관리자 접속 비밀번호</div>
+      <div class="field"><input type="password" id="adm-cfg-adminpw" placeholder="관리자 비밀번호 변경"></div>
+      <div style="height:1px;background:var(--bd);margin:10px 0;"></div>
+      <div style="font-size:12px;font-weight:700;color:var(--or);margin-bottom:6px;">🔒 관리감독자 등록 비밀번호</div>
+      <div class="field"><input type="password" id="adm-cfg-regpw" placeholder="등록 비밀번호 변경"></div>
+      <button class="btn btn-pr" onclick="aSaveCfg()">💾 설정 저장</button>
+    </div>
+    <div class="card">
+      <div class="card-title">🛡️ 관리감독자 신규 등록</div>
+      <div class="field"><label>이름</label><input type="text" id="adm-new-sup-name" placeholder="홍길동" maxlength="20"></div>
+      <div class="field"><label>회사명</label><input type="text" id="adm-new-sup-company" placeholder="(주)안전건설"></div>
+      <div class="field"><label>로그인 비밀번호</label><input type="password" id="adm-new-sup-pw" placeholder="4자 이상"></div>
+      <button class="btn btn-rd" onclick="aRegSupervisor()">🛡️ 등록</button>
+      <div id="adm-sup-err" style="display:none;background:var(--rdb);color:var(--rd);border-radius:8px;padding:10px;font-size:13px;margin-top:8px;"></div>
+    </div>
+  </div>
+</div>
+
 <!-- 알림 팝업 -->
 <div class="overlay" id="alert-ov">
   <div class="popup">
@@ -611,6 +776,7 @@ const LS = localStorage;
 let DB = null;
 let CFG = {
   company:'', supervisor:'', supervisorPw:'0000',
+  regPw:'1234', adminPw:'1234',
   teams:['공급관리팀','안전관리팀','고객지원팀','기술팀','영업팀','경영관리팀','재무관리팀','임실지사','부안지사','진안지사'],
   ranks:['사원','계장','대리','과장','차장','부장','본부장','이사']
 };
@@ -669,6 +835,8 @@ window.onload = function(){
       if(sc.company)      CFG.company      = sc.company;
       if(sc.supervisor)   CFG.supervisor   = sc.supervisor;
       if(sc.supervisorPw) CFG.supervisorPw = sc.supervisorPw;
+      if(sc.regPw)        CFG.regPw        = sc.regPw;
+      if(sc.adminPw)      CFG.adminPw      = sc.adminPw;
     }
     // 항상 파일에 정의된 팀/직책으로 캐시 갱신
     const toSave = JSON.parse(LS.getItem('tbm_cfg')||'{}');
@@ -877,10 +1045,21 @@ function checkConn(){
 function switchSignin(tab){
   document.getElementById('login-form').style.display = tab==='login'?'block':'none';
   document.getElementById('join-form').style.display  = tab==='join'?'block':'none';
+  document.getElementById('sup-form').style.display   = tab==='sup'?'block':'none';
   document.getElementById('sw-login').classList.toggle('on', tab==='login');
   document.getElementById('sw-join').classList.toggle('on',  tab==='join');
+  document.getElementById('sw-sup').classList.toggle('on',   tab==='sup');
   document.getElementById('login-err').style.display='none';
   document.getElementById('join-err').style.display='none';
+  document.getElementById('sup-err').style.display='none';
+  if(tab==='sup'){
+    // 현재 등록된 관리감독자 이름/회사 불러오기
+    document.getElementById('sup-name').value    = CFG.supervisor||'';
+    document.getElementById('sup-company').value = CFG.company||'';
+    document.getElementById('sup-pw').value  = '';
+    document.getElementById('sup-pw2').value = '';
+    document.getElementById('sup-reg-pw').value = '';
+  }
 }
 
 async function doLogin(){
@@ -945,6 +1124,36 @@ async function doJoin(){
 }
 
 function showErr(el, msg){ el.textContent=msg; el.style.display='block'; }
+
+async function doRegSupervisor(){
+  const regPw   = document.getElementById('sup-reg-pw').value;
+  const name    = document.getElementById('sup-name').value.trim();
+  const company = document.getElementById('sup-company').value.trim();
+  const pw      = document.getElementById('sup-pw').value;
+  const pw2     = document.getElementById('sup-pw2').value;
+  const errEl   = document.getElementById('sup-err');
+  errEl.style.display = 'none';
+
+  if(regPw !== CFG.regPw){ showErr(errEl,'등록 비밀번호가 틀렸습니다.'); return; }
+  if(!name){ showErr(errEl,'관리감독자 이름을 입력해주세요.'); return; }
+  if(pw.length < 4){ showErr(errEl,'로그인 비밀번호는 4자 이상이어야 합니다.'); return; }
+  if(pw !== pw2){ showErr(errEl,'비밀번호가 일치하지 않습니다.'); return; }
+
+  CFG.supervisor   = name;
+  CFG.company      = company;
+  CFG.supervisorPw = pw;
+
+  // localStorage 저장
+  try{
+    const saved = JSON.parse(LS.getItem('tbm_cfg')||'{}');
+    Object.assign(saved, {supervisor:name, company:company, supervisorPw:pw});
+    LS.setItem('tbm_cfg', JSON.stringify(saved));
+  }catch(e){}
+
+  alert2('등록 완료','관리감독자 등록이 완료되었습니다.\n\n이름: '+name+'\n\n로그인 화면에서 등록한 이름과 비밀번호로 로그인하세요.');
+  switchSignin('login');
+  document.getElementById('li-name').value = name;
+}
 
 function logout(){
   // 알림 리스너 해제
@@ -1015,6 +1224,9 @@ function buildHomeMenus(){
       + '<div class="field"><label>관리감독자 로그인 비밀번호</label><input type="password" id="cfg-sup-pw" value="'+CFG.supervisorPw+'"></div>'
       + '<div class="field"><label>팀 목록 (쉼표 구분)</label><input type="text" id="cfg-teams" value="'+CFG.teams.join(',')+'"></div>'
       + '<div class="field"><label>직책 목록 (쉼표 구분)</label><input type="text" id="cfg-ranks" value="'+CFG.ranks.join(',')+'"></div>'
+      + '<div style="height:1px;background:var(--bd);margin:10px 0;"></div>'
+      + '<div style="font-size:11px;font-weight:700;color:var(--rd);margin-bottom:6px;">🔐 관리자 등록 비밀번호 (관리감독자 등록 시 사용)</div>'
+      + '<div class="field"><input type="password" id="cfg-reg-pw" value="'+CFG.regPw+'" placeholder="등록 비밀번호"></div>'
       + '<div style="display:flex;gap:8px;margin-top:8px;">'
       + '<button class="btn btn-gr btn-sm" onclick="goDash();setTimeout(function(){ dTab(3); },100);" style="flex:1;">📥 PDF 인쇄</button>'
       + '<button class="btn btn-ol btn-sm" onclick="openPwModal()" style="flex:1;">🔑 비밀번호 변경</button>'
@@ -1059,6 +1271,7 @@ function saveCfg(){
   CFG.company      = (document.getElementById('cfg-company')?.value||'').trim();
   CFG.supervisor   = (document.getElementById('cfg-supervisor')?.value||'').trim();
   CFG.supervisorPw = (document.getElementById('cfg-sup-pw')?.value||'0000');
+  CFG.regPw        = (document.getElementById('cfg-reg-pw')?.value||'1234');
   CFG.teams        = (document.getElementById('cfg-teams')?.value||'').split(',').map(function(t){ return t.trim(); }).filter(Boolean);
   CFG.ranks        = (document.getElementById('cfg-ranks')?.value||'').split(',').map(function(r){ return r.trim(); }).filter(Boolean);
   LS.setItem('tbm_cfg', JSON.stringify(CFG));
@@ -1755,6 +1968,340 @@ async function genPDF(){
 
 // URL 파라미터 처리 (QR 제거로 단순화)
 function handleUrl(){ /* 계정 로그인 방식 — URL 파라미터 불필요 */ }
+
+// ══════════════════════════════════════════════════════════
+// 관리자 모드 (독립 화면)
+// ══════════════════════════════════════════════════════════
+let ADM_LOGGED = false;
+let ADM_PDF_TBM2=null, ADM_PDF_SIGS2=[], ADM_PDF_ASSIGNED2=[], ADM_PDF_TEAM2='';
+let ADM_HIST_TBM=null, ADM_HIST_SIGS=[], ADM_HIST_ASSIGNED=[], ADM_HIST_TEAM='', ADM_EMP_FILTER='전체';
+
+function doAdminLogin(){
+  const pw = document.getElementById('adm-pw').value;
+  const errEl = document.getElementById('adm-login-err');
+  errEl.style.display='none';
+  if(!pw){ errEl.textContent='비밀번호를 입력해주세요.'; errEl.style.display='block'; return; }
+  const adminPw = CFG.adminPw || '1234'; // 기본 관리자 비번
+  if(pw !== adminPw){ errEl.textContent='비밀번호가 틀렸습니다.'; errEl.style.display='block';
+    document.getElementById('adm-pw').value='';
+    document.getElementById('adm-pw').style.animation='shake .4s';
+    setTimeout(function(){ document.getElementById('adm-pw').style.animation=''; },400);
+    return;
+  }
+  ADM_LOGGED = true;
+  document.getElementById('adm-pw').value='';
+  go('admin-dash');
+  aTab(0);
+}
+
+function goAdminBack(){
+  ADM_LOGGED = false;
+  go('admin-login');
+  document.getElementById('adm-pw').value='';
+  document.getElementById('adm-login-err').style.display='none';
+}
+
+function logoutAdmin(){
+  ADM_LOGGED = false;
+  go('signin');
+  document.getElementById('adm-pw').value='';
+}
+
+function aTab(n){
+  [0,1,2,3,4].forEach(function(i){
+    const dt=document.getElementById('adt'+i);
+    const dc=document.getElementById('adc'+i);
+    if(dt) dt.classList.toggle('on',i===n);
+    if(dc) dc.style.display=i===n?'block':'none';
+  });
+  if(n===0) aLoadStatus();
+  if(n===1){
+    const sel=document.getElementById('apdf2-team');
+    sel.innerHTML='<option value="">-- 팀 선택 --</option>'+CFG.teams.map(function(t){ return '<option>'+t+'</option>'; }).join('');
+    document.getElementById('apdf2-detail-card').style.display='none';
+    document.getElementById('apdf2-list').innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">팀을 선택하세요.</p>';
+  }
+  if(n===2) aLoadEmployees();
+  if(n===3){
+    const sel=document.getElementById('adm-hist-team');
+    sel.innerHTML='<option value="">팀 선택</option>'+CFG.teams.map(function(t){ return '<option>'+t+'</option>'; }).join('');
+    document.getElementById('adm-hist-detail-card').style.display='none';
+  }
+  if(n===4){
+    document.getElementById('adm-cfg-company').value    = CFG.company||'';
+    document.getElementById('adm-cfg-supervisor').value = CFG.supervisor||'';
+    document.getElementById('adm-cfg-suppw').value      = CFG.supervisorPw||'';
+    document.getElementById('adm-cfg-adminpw').value    = CFG.adminPw||'1234';
+    document.getElementById('adm-cfg-regpw').value      = CFG.regPw||'1234';
+  }
+}
+
+// ── 현황 ──
+async function aLoadStatus(){
+  const today=todayStr();
+  document.getElementById('adm-date-info').textContent='기준일: '+today;
+  document.getElementById('adm-team-list').innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:20px;"><span class="spin"></span>불러오는 중...</p>';
+  let teamData={};
+  await Promise.all(CFG.teams.map(async function(team){
+    try{
+      let sigDate=today;
+      const tbmList=await dbGet('tbm/'+team);
+      if(tbmList){
+        const dates=Object.values(tbmList).filter(Boolean).map(function(t){ return t.date||''; }).filter(Boolean).sort();
+        if(dates.length>0) sigDate=dates[dates.length-1];
+      }
+      const [aData,sigsData]=await Promise.all([
+        dbGet('assignments/'+team+'/'+dbKey(sigDate)),
+        dbGet('sigs/'+team+'/'+dbKey(sigDate))
+      ]);
+      teamData[team]={assigned:aData?Object.values(aData).filter(Boolean):[],sigs:sigsData?Object.values(sigsData).filter(Boolean):[],sigDate};
+    }catch(e){ teamData[team]={assigned:[],sigs:[],sigDate:today}; }
+  }));
+  // 통계
+  let totalSigs=0,doneCnt=0,activeTeams=0,totalUnsigned=0;
+  const nudgeLines=['[TBM '+today+' 미서명 안내]\n'];
+  let hasNudge=false, rowsHtml='';
+  CFG.teams.forEach(function(team){
+    const d=teamData[team]||{assigned:[],sigs:[]};
+    const total=d.assigned.length;
+    const done=d.assigned.filter(function(m){ return d.sigs.find(function(s){ return s.name===m.name; }); }).length;
+    const pct=total>0?Math.round(done/total*100):0;
+    const color=pct===100?'var(--gr)':pct>50?'var(--or)':'var(--rd)';
+    totalSigs+=done; totalUnsigned+=(total-done);
+    if(total>0) activeTeams++;
+    if(total>0&&done===total) doneCnt++;
+    if(total>0&&done<total){
+      const unsigned=d.assigned.filter(function(m){ return !d.sigs.find(function(s){ return s.name===m.name; }); }).map(function(m){ return m.name; });
+      if(unsigned.length){ hasNudge=true; nudgeLines.push('▶ '+team+': '+unsigned.join(', ')+' ('+unsigned.length+'명 미서명)'); }
+    }
+    // 팀별 행 — 클릭 시 해당 팀 PDF로 이동
+    rowsHtml+='<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--bd);cursor:pointer;" onclick="aGoTeamPDF(\''+team+'\')">'
+      +'<div style="font-size:12px;font-weight:700;width:70px;flex-shrink:0;">'+team+'</div>'
+      +'<div style="flex:1;background:var(--gyb);border-radius:20px;height:8px;overflow:hidden;">'
+      +'<div style="height:100%;border-radius:20px;background:'+color+';width:'+pct+'%;transition:width .4s;"></div></div>'
+      +'<div style="font-size:12px;font-weight:700;color:'+color+';width:32px;text-align:right;">'+( total>0?pct+'%':'-')+'</div>'
+      +'<div style="font-size:11px;color:var(--sub);width:38px;text-align:right;">'+( total>0?done+'/'+total:'-')+'</div>'
+      +'<div style="font-size:10px;color:var(--pr);font-weight:600;">PDF→</div>'
+      +'</div>';
+  });
+  document.getElementById('adm-stat-teams').textContent=activeTeams;
+  document.getElementById('adm-stat-done').textContent=doneCnt;
+  document.getElementById('adm-stat-sigs').textContent=totalSigs;
+  document.getElementById('adm-stat-unsigned').textContent=totalUnsigned;
+  document.getElementById('adm-team-list').innerHTML=rowsHtml||'<p style="color:var(--sub);font-size:13px;text-align:center;padding:12px;">데이터 없음</p>';
+  if(hasNudge){
+    nudgeLines.push('\n위 팀원들은 TBM 서명을 완료해주시기 바랍니다.');
+    document.getElementById('adm-nudge-msg').textContent=nudgeLines.join('\n');
+    document.getElementById('adm-nudge-card').style.display='block';
+  } else { document.getElementById('adm-nudge-card').style.display='none'; }
+}
+
+function aGoTeamPDF(team){
+  aTab(1);
+  setTimeout(function(){
+    document.getElementById('apdf2-team').value=team;
+    aLoadPdfList();
+  },100);
+}
+
+function copyAdmNudge(){ copyToClipboard(document.getElementById('adm-nudge-msg').textContent,'카카오톡 단체방에 붙여넣기 하세요.'); }
+
+// ── 회의일지 PDF ──
+async function aLoadPdfList(){
+  const team=document.getElementById('apdf2-team').value;
+  const list=document.getElementById('apdf2-list');
+  document.getElementById('apdf2-detail-card').style.display='none';
+  if(!team){ list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">팀을 선택하세요.</p>'; return; }
+  list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>불러오는 중...</p>';
+  try{
+    const data=await dbGet('tbm/'+team);
+    if(!data||!Object.keys(data).length){ list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">저장된 TBM이 없습니다.</p>'; return; }
+    const entries=Object.values(data).filter(Boolean).sort(function(a,b){ return b.date>a.date?1:-1; });
+    list.innerHTML=entries.map(function(tbm,i){
+      const isToday=tbm.date===todayStr();
+      return '<div class="pdf-hist-row" onclick="aLoadPdfDetail(\''+team+'\',\''+tbm.date+'\')">'
+        +'<div style="font-size:20px;">📄</div>'
+        +'<div style="flex:1;">'
+        +'<div style="font-size:13px;font-weight:700;color:var(--pr);">'+tbm.date+(tbm.time?' '+tbm.time:'')+(isToday?' <span style="background:var(--grb);color:var(--gr);padding:1px 6px;border-radius:8px;font-size:10px;">오늘</span>':'')+'</div>'
+        +'<div style="font-size:11px;color:var(--sub);margin-top:2px;">'+(tbm.loc||'')+' · '+(tbm.work||'').slice(0,25)+'</div>'
+        +'<div style="font-size:11px;color:var(--sub);">진행자: '+(tbm.lead||'-')+'</div>'
+        +'</div>'
+        +'<div style="background:var(--rd);color:#fff;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;">출력→</div>'
+        +'</div>';
+    }).join('');
+  }catch(e){ list.innerHTML='<p style="color:var(--rd);font-size:13px;text-align:center;padding:14px;">불러오기 실패</p>'; }
+}
+
+async function aLoadPdfDetail(team, date){
+  ADM_PDF_TEAM2=team;
+  const card=document.getElementById('apdf2-detail-card');
+  card.style.display='block';
+  document.getElementById('apdf2-detail-title').textContent=team+' — '+date;
+  document.getElementById('apdf2-detail-content').innerHTML='<span class="spin"></span>불러오는 중...';
+  try{
+    const [tbmData,sigsData,aData]=await Promise.all([
+      dbGet('tbm/'+team+'/'+dbKey(date)),
+      dbGet('sigs/'+team+'/'+dbKey(date)),
+      dbGet('assignments/'+team+'/'+dbKey(date))
+    ]);
+    ADM_PDF_TBM2=tbmData||{}; ADM_PDF_SIGS2=sigsData?Object.values(sigsData).filter(Boolean):[]; ADM_PDF_ASSIGNED2=aData?Object.values(aData).filter(Boolean):[];
+    document.getElementById('apdf2-detail-content').innerHTML=renderTBMHtml(ADM_PDF_TBM2);
+    const sigCount=ADM_PDF_SIGS2.filter(function(s){ return s.sigImg; }).length;
+    document.getElementById('apdf2-sig-list').innerHTML=
+      '<div style="background:var(--grb);border-radius:8px;padding:10px;margin-bottom:8px;font-size:13px;font-weight:700;color:var(--gr);">✍️ 서명 완료: '+sigCount+'명 / 전체: '+ADM_PDF_ASSIGNED2.length+'명</div>'
+      +(ADM_PDF_ASSIGNED2.map(function(m){
+        const sig=ADM_PDF_SIGS2.find(function(s){ return s.name===m.name; });
+        return '<div class="member-row">'
+          +'<div class="m-check '+(sig?'done':'')+'">'+( sig?'✓':'')+'</div>'
+          +'<div class="m-info"><div class="m-name">'+m.name+'</div><div class="m-meta">'+m.rank+' · '+(sig?sig.time:'미서명')+'</div></div>'
+          +(sig&&sig.sigImg?'<img class="m-sig" src="'+sig.sigImg+'" alt="서명">':'<span class="chip chip-or">미서명</span>')+'</div>';
+      }).join('')||'<p style="font-size:13px;color:var(--sub);text-align:center;padding:12px;">참여자 없음</p>');
+    card.scrollIntoView({behavior:'smooth'});
+  }catch(e){ document.getElementById('apdf2-detail-content').innerHTML='<p style="color:var(--rd);font-size:13px;">불러오기 실패</p>'; }
+}
+
+async function aGenPDF(){
+  if(!ADM_PDF_TBM2||!ADM_PDF_TBM2.date){ alert2('선택 필요','목록에서 TBM을 선택해주세요.'); return; }
+  const prev={tbm:TBM,sigs:SIGS,assigned:ASSIGNED,team:LEAD_TEAM};
+  TBM=ADM_PDF_TBM2; SIGS=ADM_PDF_SIGS2; ASSIGNED=ADM_PDF_ASSIGNED2; LEAD_TEAM=ADM_PDF_TEAM2;
+  await genPDF();
+  TBM=prev.tbm; SIGS=prev.sigs; ASSIGNED=prev.assigned; LEAD_TEAM=prev.team;
+}
+
+// ── 직원 관리 ──
+async function aLoadEmployees(){
+  const el=document.getElementById('adm-emp-list');
+  el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>불러오는 중...</p>';
+  try{
+    const data=await dbGet('users');
+    if(!data){ el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">가입된 직원이 없습니다.</p>'; return; }
+    const users=Object.values(data).filter(Boolean);
+    const filterBar=document.getElementById('adm-emp-filter-bar');
+    filterBar.innerHTML=['전체',...CFG.teams].map(function(t){
+      return '<button type="button" onclick="ADM_EMP_FILTER=\''+t+'\';aRenderEmployees('+JSON.stringify(users)+')"'
+        +' style="padding:4px 10px;border:1.5px solid '+(ADM_EMP_FILTER===t?'var(--pr)':'var(--bd)')+';border-radius:20px;'
+        +'background:'+(ADM_EMP_FILTER===t?'var(--pr)':'#fff')+';color:'+(ADM_EMP_FILTER===t?'#fff':'var(--sub)')+';'
+        +'font-size:11px;font-weight:600;cursor:pointer;touch-action:manipulation;">'+t+'</button>';
+    }).join('');
+    aRenderEmployees(users);
+  }catch(e){ el.innerHTML='<p style="color:var(--rd);font-size:13px;text-align:center;padding:14px;">불러오기 실패</p>'; }
+}
+
+function aRenderEmployees(users){
+  const el=document.getElementById('adm-emp-list');
+  const filtered=ADM_EMP_FILTER==='전체'?users:users.filter(function(u){ return u.team===ADM_EMP_FILTER; });
+  if(!filtered.length){ el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">해당 팀원 없음</p>'; return; }
+  el.innerHTML=filtered.map(function(u){
+    const uKey=safeKey(u.name);
+    return '<div class="member-row">'
+      +'<div class="m-info"><div class="m-name">'+u.name+'</div><div class="m-meta">'+u.team+' · '+u.rank+'</div></div>'
+      +'<span class="chip '+(u.role==='supervisor'?'chip-rd':'chip-bl')+'">'+( u.role==='supervisor'?'관리자':u.rank)+'</span>'
+      +'<button onclick="aAdminResetPw(\''+uKey+'\',\''+u.name+'\')" '
+      +'style="font-size:11px;padding:5px 8px;border:1px solid var(--orb);border-radius:6px;background:var(--orb);color:var(--or);cursor:pointer;touch-action:manipulation;margin-left:4px;">비번초기화</button>'
+      +'</div>';
+  }).join('');
+}
+
+function aAdminResetPw(key, name){
+  PW_TARGET_KEY=key; PW_IS_ADMIN_RESET=true;
+  document.getElementById('pw-modal-sub').textContent='【관리자】 '+name+'의 비밀번호를 초기화합니다.';
+  document.getElementById('pw-cur-field').style.display='none';
+  document.getElementById('pw-new').value=''; document.getElementById('pw-new2').value='';
+  document.getElementById('pw-err').style.display='none';
+  document.getElementById('pw-change-modal').classList.add('open');
+}
+
+// ── TBM 이력 ──
+async function aLoadHistory(){
+  const team=document.getElementById('adm-hist-team').value;
+  ADM_HIST_TEAM=team;
+  const list=document.getElementById('adm-hist-list');
+  document.getElementById('adm-hist-detail-card').style.display='none';
+  if(!team){ list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">팀을 선택해주세요.</p>'; return; }
+  list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>불러오는 중...</p>';
+  try{
+    const data=await dbGet('tbm/'+team);
+    if(!data||!Object.keys(data).length){ list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">저장된 TBM이 없습니다.</p>'; return; }
+    const entries=Object.values(data).filter(Boolean).sort(function(a,b){ return b.date>a.date?1:-1; });
+    list.innerHTML=entries.map(function(tbm){
+      return '<div class="hist-row" onclick="aLoadHistDetail(\''+team+'\',\''+tbm.date+'\')">'+
+        '<div class="hist-date">'+tbm.date+' '+(tbm.time||'')+'</div>'+
+        '<div class="hist-info">'+(tbm.loc||'')+' · '+(tbm.work||'').slice(0,24)+'</div>'+
+        '<div class="hist-info">진행자: '+(tbm.lead||'-')+'</div></div>';
+    }).join('');
+  }catch(e){ list.innerHTML='<p style="color:var(--rd);font-size:13px;text-align:center;padding:14px;">불러오기 실패</p>'; }
+}
+
+async function aLoadHistDetail(team, date){
+  const card=document.getElementById('adm-hist-detail-card');
+  card.style.display='block';
+  document.getElementById('adm-hist-detail-title').textContent=team+' - '+date;
+  document.getElementById('adm-hist-detail-content').innerHTML='<span class="spin"></span>불러오는 중...';
+  try{
+    const [tbmData,sigsData,aData]=await Promise.all([
+      dbGet('tbm/'+team+'/'+dbKey(date)),
+      dbGet('sigs/'+team+'/'+dbKey(date)),
+      dbGet('assignments/'+team+'/'+dbKey(date))
+    ]);
+    ADM_HIST_TBM=tbmData||{}; ADM_HIST_SIGS=sigsData?Object.values(sigsData).filter(Boolean):[]; ADM_HIST_ASSIGNED=aData?Object.values(aData).filter(Boolean):[];
+    document.getElementById('adm-hist-detail-content').innerHTML=renderTBMHtml(ADM_HIST_TBM);
+    const signed=new Set(ADM_HIST_SIGS.map(function(s){ return s.name; }));
+    document.getElementById('adm-hist-sig-list').innerHTML=
+      '<div style="font-size:13px;font-weight:700;color:var(--pr);margin-bottom:8px;">✍️ 서명자: '+ADM_HIST_SIGS.filter(function(s){ return s.sigImg; }).length+'명 / 참여자: '+ADM_HIST_ASSIGNED.length+'명</div>'
+      +(ADM_HIST_ASSIGNED.length?ADM_HIST_ASSIGNED.map(function(m){
+        const sig=ADM_HIST_SIGS.find(function(s){ return s.name===m.name; });
+        return '<div class="member-row">'
+          +'<div class="m-check '+(sig?'done':'')+'">'+( sig?'✓':'')+'</div>'
+          +'<div class="m-info"><div class="m-name">'+m.name+'</div><div class="m-meta">'+m.rank+' · '+(sig?sig.time:'미서명')+'</div></div>'
+          +(sig&&sig.sigImg?'<img class="m-sig" src="'+sig.sigImg+'" alt="서명">':'<span class="chip chip-or">미서명</span>')+'</div>';
+      }).join(''):'<p style="font-size:13px;color:var(--sub);text-align:center;padding:12px;">참여자 없음</p>');
+    card.scrollIntoView({behavior:'smooth'});
+  }catch(e){ document.getElementById('adm-hist-detail-content').innerHTML='<p style="color:var(--rd);font-size:13px;">불러오기 실패</p>'; }
+}
+
+async function aGenPDFFromHistory(){
+  if(!ADM_HIST_TBM||!ADM_HIST_TBM.date){ alert2('선택 필요','이력 항목을 선택해주세요.'); return; }
+  const prev={tbm:TBM,sigs:SIGS,assigned:ASSIGNED,team:LEAD_TEAM};
+  TBM=ADM_HIST_TBM; SIGS=ADM_HIST_SIGS; ASSIGNED=ADM_HIST_ASSIGNED; LEAD_TEAM=ADM_HIST_TEAM;
+  await genPDF();
+  TBM=prev.tbm; SIGS=prev.sigs; ASSIGNED=prev.assigned; LEAD_TEAM=prev.team;
+}
+
+// ── 설정 저장 ──
+function aSaveCfg(){
+  CFG.company      = (document.getElementById('adm-cfg-company')?.value||'').trim();
+  CFG.supervisor   = (document.getElementById('adm-cfg-supervisor')?.value||'').trim();
+  CFG.supervisorPw = (document.getElementById('adm-cfg-suppw')?.value||'0000');
+  CFG.adminPw      = (document.getElementById('adm-cfg-adminpw')?.value||'1234');
+  CFG.regPw        = (document.getElementById('adm-cfg-regpw')?.value||'1234');
+  try{
+    const toSave=JSON.parse(LS.getItem('tbm_cfg')||'{}');
+    Object.assign(toSave,{company:CFG.company,supervisor:CFG.supervisor,supervisorPw:CFG.supervisorPw,adminPw:CFG.adminPw,regPw:CFG.regPw,teams:CFG.teams,ranks:CFG.ranks});
+    LS.setItem('tbm_cfg',JSON.stringify(toSave));
+  }catch(e){}
+  alert2('저장 완료','설정이 저장되었습니다.');
+}
+
+// ── 관리감독자 신규 등록 ──
+async function aRegSupervisor(){
+  const name    = document.getElementById('adm-new-sup-name').value.trim();
+  const company = document.getElementById('adm-new-sup-company').value.trim();
+  const pw      = document.getElementById('adm-new-sup-pw').value;
+  const errEl   = document.getElementById('adm-sup-err');
+  errEl.style.display='none';
+  if(!name){ errEl.textContent='이름을 입력해주세요.'; errEl.style.display='block'; return; }
+  if(pw.length<4){ errEl.textContent='비밀번호는 4자 이상이어야 합니다.'; errEl.style.display='block'; return; }
+  CFG.supervisor=name; if(company) CFG.company=company; CFG.supervisorPw=pw;
+  try{
+    const toSave=JSON.parse(LS.getItem('tbm_cfg')||'{}');
+    Object.assign(toSave,{supervisor:name,company:CFG.company,supervisorPw:pw});
+    LS.setItem('tbm_cfg',JSON.stringify(toSave));
+  }catch(e){}
+  document.getElementById('adm-new-sup-name').value='';
+  document.getElementById('adm-new-sup-company').value='';
+  document.getElementById('adm-new-sup-pw').value='';
+  alert2('등록 완료','관리감독자 ['+name+'] 등록이 완료되었습니다.\n로그인 화면에서 해당 이름과 비밀번호로 로그인하세요.');
+}
 
 // ══════════════════════════════════════════════════════════
 // 비밀번호 변경 (본인)
