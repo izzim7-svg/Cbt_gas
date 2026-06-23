@@ -526,7 +526,7 @@ let DB = null;
 let CFG = {
   company:'', supervisor:'', supervisorPw:'0000',
   teams:['A팀','B팀','C팀','D팀','E팀','F팀','G팀','H팀','I팀','J팀'],
-  ranks:['팀원','반장','조장','팀장','안전담당']
+  ranks:['사원','계장','대리','과장','차장','부장','본부장','이사']
 };
 let CUR = null; // 현재 로그인 사용자 {name, team, rank, role}
 let TBM = null;
@@ -689,7 +689,7 @@ function closeNotifBanner(){
 
 // TBM 실시간 감지 리스너 (팀원용)
 function startTBMWatcher(){
-  if(!CUR || CUR.role !== 'member') return;
+  if(!CUR) return;
   if(!initDB()) return;
 
   // 기존 리스너 해제
@@ -741,7 +741,7 @@ function startTBMWatcher(){
 
 // 앱 포그라운드 복귀 시 미서명 체크
 function checkUnreadTBM(){
-  if(!CUR || CUR.role !== 'member') return;
+  if(!CUR) return;
   const today = todayStr();
   Promise.all([
     dbGet('tbm/' + CUR.team + '/' + dbKey(today)),
@@ -834,6 +834,7 @@ async function doJoin(){
     const exists = await dbGet('users/'+safeKey(name));
     if(exists){ showErr(errEl,'이미 가입된 이름입니다. 로그인해주세요.'); setSS('ok',''); return; }
 
+    // 모든 사용자 동일 권한 — 직급으로만 구분
     const userData = {name, team, rank, pw, role:'member', joinedAt:Date.now()};
     await dbSet('users/'+safeKey(name), userData);
 
@@ -879,17 +880,16 @@ function goHome(){
   buildHomeMenus();
   // 팀원 전용 기능
   const qsb = document.getElementById('quick-sign-bar');
-  if(qsb) qsb.style.display = (CUR && CUR.role==='member') ? 'block' : 'none';
+  if(qsb) qsb.style.display = CUR ? 'block' : 'none';
   go('home');
   checkConn();
   // 알림 권한 요청 + TBM 감지 리스너 시작 (팀원만)
-  if(CUR && CUR.role === 'member'){
-    requestNotifPermission();
-    setTimeout(function(){
-      startTBMWatcher();
-      checkUnreadTBM(); // 앱 켤 때 미서명 TBM 있으면 바로 안내
-    }, 1500);
-  }
+  // 모든 사용자 알림 수신
+  requestNotifPermission();
+  setTimeout(function(){
+    startTBMWatcher();
+    checkUnreadTBM();
+  }, 1500);
 
 
 }
@@ -899,12 +899,15 @@ function buildHomeMenus(){
   if(!el) return;
 
   if(CUR.role==='supervisor'){
-    // 관리감독자
-    el.innerHTML = '<div class="role-grid" style="grid-template-columns:1fr 1fr;">'
-      + '<div class="role-card dc" onclick="goDash()">'
-      + '<div class="ic">📊</div><h3 style="color:var(--rd);">전체 현황</h3><p>전 팀 서명 현황<br>TBM 이력 · 직원 관리</p></div>'
-      + '<div class="role-card lc" onclick="goLead()">'
-      + '<div class="ic">📝</div><h3>TBM 작성</h3><p>오늘의 TBM 작성<br>참여자 지정 · QR</p></div>'
+    // 관리감독자 — 전체현황 + TBM작성 + 서명
+    el.innerHTML = '<div style="padding:12px 12px 4px;">'
+      + '<div style="background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;border-radius:14px;padding:14px;margin-bottom:8px;cursor:pointer;touch-action:manipulation;" onclick="goDash()">'
+      + '<div style="display:flex;align-items:center;gap:12px;">'
+      + '<span style="font-size:28px;">📊</span>'
+      + '<div><div style="font-size:15px;font-weight:800;">전체 현황 대시보드</div>'
+      + '<div style="font-size:11px;opacity:.85;margin-top:2px;">전 팀 서명 현황 · 직원 관리 · TBM 이력</div></div>'
+      + '<span style="margin-left:auto;font-size:18px;">→</span></div></div>'
+      + menuTBMCard() + menuSignCard()
       + '</div>'
       + '<div class="card" style="margin-top:4px;">'
       + '<div class="card-title">⚙️ 시스템 설정</div>'
@@ -917,25 +920,31 @@ function buildHomeMenus(){
       + '</div>'
       + '<div style="padding:0 12px 8px;"><button class="btn btn-gy btn-sm" onclick="logout()">로그아웃</button></div>';
 
-  } else if(CUR.role==='lead' || CUR.role==='supervisor'){
-    // 팀장
-    el.innerHTML = '<div class="role-grid" style="grid-template-columns:1fr 1fr;">'
-      + '<div class="role-card lc" onclick="goLead()">'
-      + '<div class="ic">📝</div><h3>TBM 작성</h3><p>TBM 작성 · 참여자 지정<br>서명 현황 · PDF</p></div>'
-      + '<div class="role-card mc" onclick="goMember()">'
-      + '<div class="ic">✍️</div><h3>내 서명</h3><p>배정된 TBM 확인<br>및 서명</p></div>'
-      + '</div>'
-      + '<div style="padding:0 12px 8px;"><button class="btn btn-gy btn-sm" onclick="logout()">로그아웃 ('+CUR.name+')</button></div>';
-
   } else {
-    // 일반 팀원
-    el.innerHTML = '<div style="padding:14px;">'
-      + '<div class="role-card mc" onclick="goMember()" style="max-width:320px;margin:0 auto;">'
-      + '<div class="ic">✍️</div><h3>TBM 교육 확인 및 서명</h3>'
-      + '<p>배정된 TBM 내용을 확인하고<br>서명을 완료하세요</p></div>'
+    // 일반 직원 — 모두 TBM 작성 + 서명 가능
+    el.innerHTML = '<div style="padding:12px 12px 4px;">'
+      + menuTBMCard() + menuSignCard()
       + '</div>'
       + '<div style="padding:0 12px 8px;"><button class="btn btn-gy btn-sm" onclick="logout()">로그아웃 ('+CUR.name+')</button></div>';
   }
+}
+
+// 공통 메뉴 카드
+function menuTBMCard(){
+  return '<div style="background:linear-gradient(135deg,var(--pur),#6d28d9);color:#fff;border-radius:14px;padding:16px;margin-bottom:8px;cursor:pointer;touch-action:manipulation;" onclick="goLead()">'
+    + '<div style="display:flex;align-items:center;gap:12px;">'
+    + '<span style="font-size:32px;">📝</span>'
+    + '<div><div style="font-size:16px;font-weight:800;">TBM 작성 · 관리</div>'
+    + '<div style="font-size:12px;opacity:.85;margin-top:3px;">참여자 지정 · 서명 현황 · PDF 생성</div></div>'
+    + '<span style="margin-left:auto;font-size:20px;">→</span></div></div>';
+}
+function menuSignCard(){
+  return '<div style="background:linear-gradient(135deg,var(--gr),#15803d);color:#fff;border-radius:14px;padding:16px;cursor:pointer;touch-action:manipulation;" onclick="goMember()">'
+    + '<div style="display:flex;align-items:center;gap:12px;">'
+    + '<span style="font-size:32px;">✍️</span>'
+    + '<div><div style="font-size:16px;font-weight:800;">TBM 교육 확인 및 서명</div>'
+    + '<div style="font-size:12px;opacity:.85;margin-top:3px;">배정된 TBM 내용 확인 및 서명</div></div>'
+    + '<span style="margin-left:auto;font-size:20px;">→</span></div></div>';
 }
 
 function saveCfg(){
@@ -1429,14 +1438,36 @@ function renderEmployees(users){
   const filtered=empFilter==='전체'?users:users.filter(function(u){ return u.team===empFilter; });
   if(!filtered.length){ el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">해당 팀원 없음</p>'; return; }
   el.innerHTML=filtered.map(function(u){
+    const isSup   = u.role==='supervisor';
+    const uKey    = safeKey(u.name);
+    const uRole   = u.role||'member';
+    const btnHtml = isSup
+      ? '<span class="chip chip-rd">관리감독자</span>'
+      : '<button onclick="toggleEmpRole(\''+uKey+'\',\''+u.name+'\',\''+uRole+'\')" '
+        +'style="font-size:11px;padding:4px 8px;border:1px solid var(--bd);border-radius:6px;'
+        +'background:#fff;cursor:pointer;touch-action:manipulation;margin-left:4px;">관리자 지정</button>';
     return '<div class="member-row">'
       +'<div class="m-info">'
       +'<div class="m-name">'+u.name+'</div>'
       +'<div class="m-meta">'+u.team+' · '+u.rank+'</div>'
       +'</div>'
-      +'<span class="chip chip-bl">'+u.team+'</span>'
+      +(isSup
+        ? '<span class="chip chip-rd">관리감독자</span>'
+        : '<span class="chip chip-bl">'+u.rank+'</span>')
+      +btnHtml
       +'</div>';
   }).join('');
+}
+
+async function toggleEmpRole(key, name, currentRole){
+  if(currentRole==='supervisor') return;
+  const newRole = currentRole==='supervisor' ? 'member' : 'supervisor';
+  if(!confirm(name+'에게 관리감독자 권한을 부여할까요?')) return;
+  try{
+    await dbUpdate('users/'+key, {role: newRole});
+    alert2('변경 완료', name+'의 권한이 변경되었습니다.');
+    loadEmployees();
+  }catch(e){ alert2('오류', e.message); }
 }
 
 // ══════════════════════════════════════════════════════════
