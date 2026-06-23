@@ -39,7 +39,8 @@ input[type=text],input[type=date],input[type=password],input[type=time],textarea
   width:100%;padding:12px 14px;border:1.5px solid var(--bd);border-radius:9px;
   font-size:16px;font-family:inherit;background:#fff;color:var(--tx);
   -webkit-appearance:none;appearance:none;}
-input:focus,textarea:focus,select:focus{outline:none;border-color:var(--ac);}
+input[type=text]:focus,input[type=password]:focus,input[type=date]:focus,input[type=time]:focus,textarea:focus,select:focus{outline:none;border-color:var(--ac);}
+input[type=checkbox],input[type=radio]{width:auto;padding:0;-webkit-appearance:auto;appearance:auto;}
 textarea{resize:vertical;min-height:72px;line-height:1.6;font-size:15px;}
 label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-bottom:5px;}
 .field{margin-bottom:12px;}
@@ -330,12 +331,17 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div class="card-title" style="margin:0;">👥 참여자 선택 <span id="assign-count" class="chip chip-bl">0명</span></div>
-        <button class="btn btn-gy btn-sm" onclick="selectAllMembers()" style="width:auto;">전체 선택</button>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-gy btn-sm" onclick="selectAllVisible()" style="width:auto;font-size:12px;">✅ 전체선택</button>
+          <button class="btn btn-gy btn-sm" onclick="deselectAllVisible()" style="width:auto;font-size:12px;">☐ 전체해제</button>
+        </div>
       </div>
+      <!-- 팀 필터 탭 -->
+      <div id="assign-team-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--bd);"></div>
       <div id="assign-list"><p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>팀원 불러오는 중...</p></div>
     </div>
     <div style="padding:0 12px 8px;">
-      <button class="btn btn-gr" onclick="saveAssignment()">✅ 참여자 확정 → QR 공유</button>
+      <button class="btn btn-gr" onclick="saveAssignment()">✅ 참여자 확정 → 서명 현황</button>
     </div>
   </div>
 
@@ -1418,43 +1424,118 @@ function showTBMSummary(){
 }
 
 // ══════════════════════════════════════════════════════════
-// 참여자 선택 (가입된 팀원 중)
+// 참여자 선택 — 전체 팀 탭 방식
 // ══════════════════════════════════════════════════════════
+let ASSIGN_ALL_USERS = [];   // 전체 가입 직원 캐시
+let ASSIGN_TEAM_FILTER = '전체'; // 현재 보이는 팀
+
 async function loadAssignList(){
   const el = document.getElementById('assign-list');
+  const tabsEl = document.getElementById('assign-team-tabs');
   el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;"><span class="spin"></span>팀원 불러오는 중...</p>';
+  tabsEl.innerHTML='';
+  ASSIGN_TEAM_FILTER = '전체';
+
   try{
     const data = await dbGet('users');
     if(!data){ el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">가입된 팀원이 없습니다.</p>'; return; }
 
-    // 같은 팀 필터
-    const teamMembers = Object.values(data).filter(function(u){
-      return u && u.team===LEAD_TEAM && u.role==='member';
-    }).sort(function(a,b){ return a.name>b.name?1:-1; });
-
-    if(!teamMembers.length){ el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">'+LEAD_TEAM+' 가입된 팀원이 없습니다.</p>'; return; }
+    // 전체 직원 캐시 (member만)
+    ASSIGN_ALL_USERS = Object.values(data).filter(function(u){ return u && u.role==='member'; })
+      .sort(function(a,b){ return (a.team+a.name)>(b.team+b.name)?1:-1; });
 
     // 기존 배정 로드
     let prevAssigned = new Set();
     if(TBM){
       try{
         const prev = await dbGet('assignments/'+LEAD_TEAM+'/'+dbKey(TBM.date));
-        if(prev) Object.keys(prev).forEach(function(k){ prevAssigned.add(prev[k].name||k); });
+        if(prev) Object.values(prev).filter(Boolean).forEach(function(v){ prevAssigned.add(v.name); });
       }catch(e){}
     }
 
-    el.innerHTML = teamMembers.map(function(u){
-      const checked = prevAssigned.has(u.name) ? 'checked' : '';
-      return '<div class="assign-item" onclick="toggleAssign(\''+safeKey(u.name)+'\')">'
-        +'<input type="checkbox" id="asgn-'+safeKey(u.name)+'" '+checked+' onclick="event.stopPropagation()" onchange="updateAssignCount()">'
-        +'<div>'
-        +'<div style="font-size:14px;font-weight:700;">'+u.name+'</div>'
-        +'<div style="font-size:11px;color:var(--sub);">'+u.rank+'</div>'
-        +'</div></div>';
+    // 팀 탭 빌드 — 실제 가입된 팀만 표시
+    const teamsInData = ['전체', ...Array.from(new Set(ASSIGN_ALL_USERS.map(function(u){ return u.team; }))).sort()];
+    tabsEl.innerHTML = teamsInData.map(function(t){
+      const cnt = t==='전체' ? ASSIGN_ALL_USERS.length : ASSIGN_ALL_USERS.filter(function(u){ return u.team===t; }).length;
+      return '<button type="button" id="atab-'+safeKey(t)+'" onclick="switchAssignTeam(\''+t+'\')"'
+        +' style="padding:6px 12px;border:1.5px solid var(--bd);border-radius:20px;background:#fff;'
+        +'color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;'
+        +(t==='전체'?'border-color:var(--pr);background:var(--pr);color:#fff;':'')
+        +'">'+t+' <span style="opacity:.7;">('+cnt+')</span></button>';
     }).join('');
 
-    document.getElementById('assign-count').textContent = prevAssigned.size+'명';
+    // 체크 상태 포함 렌더
+    renderAssignList(prevAssigned);
+    updateAssignCount();
+
   }catch(e){ el.innerHTML='<p style="color:var(--rd);font-size:13px;text-align:center;padding:14px;">불러오기 실패: '+e.message+'</p>'; }
+}
+
+function switchAssignTeam(team){
+  ASSIGN_TEAM_FILTER = team;
+  // 탭 스타일 업데이트
+  document.querySelectorAll('[id^="atab-"]').forEach(function(btn){
+    const isOn = btn.id === 'atab-'+safeKey(team);
+    btn.style.borderColor = isOn ? 'var(--pr)' : 'var(--bd)';
+    btn.style.background  = isOn ? 'var(--pr)' : '#fff';
+    btn.style.color       = isOn ? '#fff' : 'var(--sub)';
+  });
+  renderAssignList(null);
+}
+
+function renderAssignList(preChecked){
+  const el = document.getElementById('assign-list');
+  const filtered = ASSIGN_TEAM_FILTER==='전체'
+    ? ASSIGN_ALL_USERS
+    : ASSIGN_ALL_USERS.filter(function(u){ return u.team===ASSIGN_TEAM_FILTER; });
+
+  if(!filtered.length){
+    el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">이 팀에 가입된 팀원이 없습니다.</p>';
+    return;
+  }
+
+  // 팀별 그룹핑 (전체 탭일 때만)
+  if(ASSIGN_TEAM_FILTER==='전체'){
+    const byTeam = {};
+    filtered.forEach(function(u){
+      if(!byTeam[u.team]) byTeam[u.team]=[];
+      byTeam[u.team].push(u);
+    });
+    el.innerHTML = Object.keys(byTeam).sort().map(function(team){
+      const members = byTeam[team];
+      return '<div style="margin-bottom:4px;">'
+        +'<div style="background:var(--prl);padding:6px 10px;border-radius:6px;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;">'
+        +'<span style="font-size:12px;font-weight:800;color:var(--pr);">'+team+'</span>'
+        +'<div style="display:flex;gap:6px;">'
+        +'<button type="button" onclick="selectTeamGroup(\''+team+'\')" style="font-size:11px;padding:3px 8px;border:1px solid var(--pr);border-radius:10px;background:#fff;color:var(--pr);cursor:pointer;font-weight:600;">전체선택</button>'
+        +'<button type="button" onclick="deselectTeamGroup(\''+team+'\')" style="font-size:11px;padding:3px 8px;border:1px solid var(--bd);border-radius:10px;background:#fff;color:var(--sub);cursor:pointer;font-weight:600;">해제</button>'
+        +'</div></div>'
+        + members.map(function(u){ return buildAssignRow(u, preChecked); }).join('')
+        +'</div>';
+    }).join('');
+  } else {
+    el.innerHTML = filtered.map(function(u){ return buildAssignRow(u, preChecked); }).join('');
+  }
+}
+
+function buildAssignRow(u, preChecked){
+  const key = safeKey(u.name);
+  // preChecked가 있으면 그걸로, 없으면 현재 체크 상태 유지
+  let checked = '';
+  if(preChecked !== null && preChecked !== undefined){
+    checked = preChecked.has(u.name) ? 'checked' : '';
+  } else {
+    const existing = document.getElementById('asgn-'+key);
+    checked = (existing && existing.checked) ? 'checked' : '';
+  }
+  return '<div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--bd);cursor:pointer;" onclick="toggleAssign(\''+key+'\')">'
+    +'<input type="checkbox" id="asgn-'+key+'" '+checked
+    +' style="width:22px;height:22px;accent-color:var(--pr);flex-shrink:0;cursor:pointer;"'
+    +' onclick="event.stopPropagation();" onchange="updateAssignCount()">'
+    +'<div style="flex:1;">'
+    +'<div style="font-size:14px;font-weight:700;">'+u.name+'</div>'
+    +'<div style="font-size:11px;color:var(--sub);">'+u.team+' · '+u.rank+'</div>'
+    +'</div></div>';
 }
 
 function toggleAssign(key){
@@ -1464,27 +1545,63 @@ function toggleAssign(key){
 
 function updateAssignCount(){
   const cnt = document.querySelectorAll('#assign-list input[type=checkbox]:checked').length;
+  // 전체 탭이 아닐 때는 전체 카운트를 위해 다른 탭 체크도 합산
+  // 실제 체크된 것만 count (DOM 기준)
   document.getElementById('assign-count').textContent = cnt+'명';
 }
 
-function selectAllMembers(){
+function selectAllVisible(){
   document.querySelectorAll('#assign-list input[type=checkbox]').forEach(function(cb){ cb.checked=true; });
   updateAssignCount();
 }
+function deselectAllVisible(){
+  document.querySelectorAll('#assign-list input[type=checkbox]').forEach(function(cb){ cb.checked=false; });
+  updateAssignCount();
+}
+function selectTeamGroup(team){
+  ASSIGN_ALL_USERS.filter(function(u){ return u.team===team; }).forEach(function(u){
+    const cb=document.getElementById('asgn-'+safeKey(u.name)); if(cb) cb.checked=true;
+  });
+  updateAssignCount();
+}
+function deselectTeamGroup(team){
+  ASSIGN_ALL_USERS.filter(function(u){ return u.team===team; }).forEach(function(u){
+    const cb=document.getElementById('asgn-'+safeKey(u.name)); if(cb) cb.checked=false;
+  });
+  updateAssignCount();
+}
+// 구형 호환 (혹시 남아있는 참조 대비)
+function selectAllMembers(){ selectAllVisible(); }
 
 async function saveAssignment(){
   if(!TBM){ alert2('오류','TBM을 먼저 저장해주세요.'); return; }
+
+  // 전체 팀 탭 전환 후 체크 수집을 위해, ASSIGN_ALL_USERS 기반으로 DOM 체크 상태 수집
+  // 단, 탭 전환 시 DOM이 다시 그려지므로 전체 탭으로 먼저 전환
+  if(ASSIGN_TEAM_FILTER !== '전체'){
+    // 현재 보이는 탭의 체크 상태를 임시 저장
+    const curChecked = new Set();
+    document.querySelectorAll('#assign-list input[type=checkbox]:checked').forEach(function(cb){
+      curChecked.add(cb.id.replace('asgn-',''));
+    });
+    // 전체 탭으로 전환
+    switchAssignTeam('전체');
+    // 이전 탭 체크 상태 복원
+    curChecked.forEach(function(key){
+      const cb=document.getElementById('asgn-'+key); if(cb) cb.checked=true;
+    });
+    updateAssignCount();
+  }
+
   const checked = document.querySelectorAll('#assign-list input[type=checkbox]:checked');
   if(!checked.length){ alert2('선택 필요','참여자를 1명 이상 선택해주세요.'); return; }
 
   const assignObj = {};
   checked.forEach(function(cb){
     const key = cb.id.replace('asgn-','');
-    const nameEl = cb.parentElement.querySelector('div div:first-child');
-    const rankEl = cb.parentElement.querySelector('div div:last-child');
-    const name = nameEl ? nameEl.textContent : key;
-    const rank = rankEl ? rankEl.textContent : '';
-    assignObj[key] = {name, rank};
+    // ASSIGN_ALL_USERS에서 정보 찾기
+    const u = ASSIGN_ALL_USERS.find(function(x){ return safeKey(x.name)===key; });
+    if(u) assignObj[key] = {name:u.name, rank:u.rank};
   });
 
   setSS('ing','참여자 저장 중...');
