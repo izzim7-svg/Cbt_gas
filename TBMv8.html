@@ -661,8 +661,21 @@ window.onload = function(){
     document.getElementById('t-time').value =
       pad(now.getHours())+':'+pad(now.getMinutes());
 
-  // 설정 로드
-  try{ const sc=JSON.parse(LS.getItem('tbm_cfg')||'null'); if(sc) Object.assign(CFG,sc); }catch(e){}
+  // 설정 로드 — teams/ranks는 파일 내 기본값 우선, 나머지(회사명·감독자)만 캐시에서 복원
+  try{
+    const sc = JSON.parse(LS.getItem('tbm_cfg')||'null');
+    if(sc){
+      // 회사명, 관리감독자 이름/비번만 복원 (팀·직책은 파일 기본값 유지)
+      if(sc.company)      CFG.company      = sc.company;
+      if(sc.supervisor)   CFG.supervisor   = sc.supervisor;
+      if(sc.supervisorPw) CFG.supervisorPw = sc.supervisorPw;
+    }
+    // 항상 파일에 정의된 팀/직책으로 캐시 갱신
+    const toSave = JSON.parse(LS.getItem('tbm_cfg')||'{}');
+    toSave.teams = CFG.teams;
+    toSave.ranks = CFG.ranks;
+    LS.setItem('tbm_cfg', JSON.stringify(Object.assign(toSave, {teams:CFG.teams, ranks:CFG.ranks})));
+  }catch(e){}
 
   // 가입 폼 팀/직책 그리드 빌드
   buildSigninGrids();
