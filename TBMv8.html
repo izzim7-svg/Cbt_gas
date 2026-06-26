@@ -175,6 +175,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
 .pdf-hist-row:last-child{border-bottom:none;}
 .pdf-hist-row:active{background:var(--gyb);}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -286,7 +287,12 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
       <div class="card-title">📅 기본 정보</div>
       <div class="row2">
         <div class="field"><label>날짜</label><input type="date" id="t-date"></div>
-        <div class="field"><label>시간</label><input type="time" id="t-time"></div>
+        <div class="field"><label>시작 시간</label><input type="time" id="t-time"></div>
+      </div>
+      <div class="field">
+        <label>종료 시간 <span class="chip chip-or" style="font-size:10px;">선택입력</span></label>
+        <input type="time" id="t-endtime" placeholder="--:--">
+        <div style="font-size:11px;color:var(--sub);margin-top:4px;">※ 미입력 시 마지막 서명 시각을 종료 기준으로 자동 적용 (최소 10분)</div>
       </div>
       <div class="field"><label>작업 장소</label><input type="text" id="t-loc" placeholder="예) 2공장 3층 배관구역"></div>
       <div class="field"><label>작업 내용</label><input type="text" id="t-work" placeholder="예) 배관 교체 작업"></div>
@@ -610,9 +616,14 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
     <div class="signin-card">
       <div class="signin-logo">🔐</div>
       <div class="signin-title" style="color:var(--rd);">관리자 모드</div>
-      <div class="signin-sub">TBM 전체 현황 · 회의일지 출력 · 직원 관리</div>
-      <div style="height:1px;background:var(--bd);margin:16px 0;"></div>
-      <div class="field"><label>관리자 비밀번호</label><input type="password" id="adm-pw" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter')doAdminLogin()"></div>
+      <div class="tab-switch" style="margin-bottom:14px;">
+        <button class="tab-sw-btn on" id="sw-adm-full" onclick="switchAdmLoginTab('full')">🔐 관리자</button>
+        <button class="tab-sw-btn" id="sw-adm-view" onclick="switchAdmLoginTab('view')">👁️ 조회 전용</button>
+      </div>
+      <div id="adm-full-desc" class="signin-sub" style="margin-bottom:10px;">전체 관리 · 수정 · 삭제 가능</div>
+      <div id="adm-view-desc" class="signin-sub" style="display:none;margin-bottom:10px;color:var(--or);">현황 조회 · 이력 보기 · 엑셀 추출만 가능</div>
+      <div style="height:1px;background:var(--bd);margin:10px 0;"></div>
+      <div class="field"><label id="adm-pw-label">관리자 비밀번호</label><input type="password" id="adm-pw" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter')doAdminLogin()"></div>
       <div id="adm-login-err" style="display:none;background:var(--rdb);color:var(--rd);border-radius:8px;padding:10px;font-size:13px;margin-bottom:10px;text-align:center;"></div>
       <button class="btn btn-rd" onclick="doAdminLogin()">🔐 관리자 접속</button>
       <button class="btn btn-gy" onclick="go('signin')" style="margin-top:10px;">← 일반 로그인으로</button>
@@ -629,12 +640,17 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
     <button onclick="logoutAdmin()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;touch-action:manipulation;">로그아웃</button>
   </div>
 
+  <div id="adm-viewer-bar" style="display:none;background:var(--orb);color:var(--or);padding:8px 14px;font-size:12px;font-weight:700;text-align:center;">
+    👁️ 조회 전용 모드 — 데이터 수정 불가 (엑셀 추출·현황 조회만 가능)
+  </div>
   <div class="tab-bar2" style="overflow-x:auto;white-space:nowrap;display:flex;">
     <div class="tab2 on" id="adt0" onclick="aTab(0)" style="flex-shrink:0;">📊 현황</div>
     <div class="tab2" id="adt1" onclick="aTab(1)" style="flex-shrink:0;">🖨️ 회의일지</div>
     <div class="tab2" id="adt2" onclick="aTab(2)" style="flex-shrink:0;">👥 직원</div>
     <div class="tab2" id="adt3" onclick="aTab(3)" style="flex-shrink:0;">📅 이력</div>
+    <div class="tab2" id="adt5" onclick="aTab(5)" style="flex-shrink:0;">⏱️ 교육시간</div>
     <div class="tab2" id="adt4" onclick="aTab(4)" style="flex-shrink:0;">⚙️ 설정</div>
+    <div class="tab2" id="adt6" onclick="aTab(6)" style="flex-shrink:0;">📊 엑셀추출</div>
   </div>
 
   <!-- 탭0: 전체 현황 -->
@@ -742,10 +758,114 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
     <div class="card" id="adm-hist-detail-card" style="display:none;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div class="card-title" style="margin:0;" id="adm-hist-detail-title">이력 상세</div>
-        <button class="btn btn-rd btn-sm" onclick="aGenPDFFromHistory()" style="width:auto;">🖨️ PDF</button>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-ol btn-sm" onclick="openAdmTimeEdit()" style="width:auto;">⏰ 시간수정</button>
+          <button class="btn btn-rd btn-sm" onclick="aGenPDFFromHistory()" style="width:auto;">🖨️ PDF</button>
+        </div>
       </div>
       <div id="adm-hist-detail-content"></div>
       <div id="adm-hist-sig-list" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <!-- 탭5: 교육시간 분석 -->
+  <div id="adc5" style="display:none;">
+    <div class="card">
+      <div class="card-title">⏱️ 인원별 TBM 교육시간 분석</div>
+      <p style="font-size:12px;color:var(--sub);margin-bottom:12px;line-height:1.6;">서명 참여 기록을 기반으로 인원별 누적 TBM 교육시간을 산출합니다.<br>교육시간 = TBM 시작시간 ~ 마지막 서명 시각 기준</p>
+
+      <!-- 기간 필터 -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;" id="edu-period-btns">
+        <button type="button" onclick="setEduPeriod('month')"  id="ep-month"  class="ep-btn" style="padding:6px 12px;border:1.5px solid var(--pr);border-radius:20px;background:var(--pr);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">이번 달</button>
+        <button type="button" onclick="setEduPeriod('last')"   id="ep-last"   class="ep-btn" style="padding:6px 12px;border:1.5px solid var(--bd);border-radius:20px;background:#fff;color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;">지난 달</button>
+        <button type="button" onclick="setEduPeriod('3month')" id="ep-3month" class="ep-btn" style="padding:6px 12px;border:1.5px solid var(--bd);border-radius:20px;background:#fff;color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;">최근 3개월</button>
+        <button type="button" onclick="setEduPeriod('year')"   id="ep-year"   class="ep-btn" style="padding:6px 12px;border:1.5px solid var(--bd);border-radius:20px;background:#fff;color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;">올해</button>
+        <button type="button" onclick="setEduPeriod('custom')" id="ep-custom" class="ep-btn" style="padding:6px 12px;border:1.5px solid var(--bd);border-radius:20px;background:#fff;color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;">직접 입력</button>
+      </div>
+      <div id="edu-custom-range" style="display:none;display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
+        <input type="date" id="edu-from" style="flex:1;min-width:130px;padding:8px;border:1.5px solid var(--bd);border-radius:8px;font-size:14px;">
+        <span style="color:var(--sub);font-size:13px;">~</span>
+        <input type="date" id="edu-to"   style="flex:1;min-width:130px;padding:8px;border:1.5px solid var(--bd);border-radius:8px;font-size:14px;">
+        <button class="btn btn-pr btn-sm" onclick="aLoadEduTime()" style="width:auto;padding:8px 14px;">조회</button>
+      </div>
+
+      <!-- 팀 필터 -->
+      <div style="margin-bottom:10px;">
+        <select id="edu-team-sel" onchange="aLoadEduTime()" style="width:100%;padding:10px;border:1.5px solid var(--bd);border-radius:8px;font-size:14px;">
+          <option value="__ALL__">전체 팀</option>
+        </select>
+      </div>
+
+      <!-- 결과 -->
+      <div id="edu-result"><p style="font-size:13px;color:var(--sub);text-align:center;padding:20px;">기간을 선택하면 결과가 표시됩니다.</p></div>
+    </div>
+
+    <!-- 요약 카드 -->
+    <div class="card" id="edu-summary-card" style="display:none;">
+      <div class="card-title">📈 기간 요약</div>
+      <div id="edu-summary-content"></div>
+    </div>
+  </div>
+
+  <!-- 탭6: 엑셀 추출 -->
+  <div id="adc6" style="display:none;">
+    <div class="card">
+      <div class="card-title">📊 엑셀 데이터 추출</div>
+      <p style="font-size:13px;color:var(--sub);margin-bottom:14px;line-height:1.6;">
+        원하는 항목과 기간을 선택하여 엑셀(.xlsx)로 다운로드합니다.
+      </p>
+
+      <!-- 기간 선택 -->
+      <div style="font-size:12px;font-weight:700;color:var(--tx);margin-bottom:6px;">📅 기간 선택</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;" id="xl-period-btns">
+        <button type="button" onclick="setXlPeriod('month')"  id="xlp-month"  class="xlp-btn" style="padding:6px 12px;border:1.5px solid var(--pr);border-radius:20px;background:var(--pr);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">이번 달</button>
+        <button type="button" onclick="setXlPeriod('last')"   id="xlp-last"   class="xlp-btn" style="padding:6px 12px;border:1.5px solid var(--bd);border-radius:20px;background:#fff;color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;">지난 달</button>
+        <button type="button" onclick="setXlPeriod('3month')" id="xlp-3month" class="xlp-btn" style="padding:6px 12px;border:1.5px solid var(--bd);border-radius:20px;background:#fff;color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;">최근 3개월</button>
+        <button type="button" onclick="setXlPeriod('year')"   id="xlp-year"   class="xlp-btn" style="padding:6px 12px;border:1.5px solid var(--bd);border-radius:20px;background:#fff;color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;">올해</button>
+        <button type="button" onclick="setXlPeriod('all')"    id="xlp-all"    class="xlp-btn" style="padding:6px 12px;border:1.5px solid var(--bd);border-radius:20px;background:#fff;color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;">전체</button>
+        <button type="button" onclick="setXlPeriod('custom')" id="xlp-custom" class="xlp-btn" style="padding:6px 12px;border:1.5px solid var(--bd);border-radius:20px;background:#fff;color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;">직접 입력</button>
+      </div>
+      <div id="xl-custom-range" style="display:none;display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">
+        <input type="date" id="xl-from" style="flex:1;min-width:130px;padding:8px;border:1.5px solid var(--bd);border-radius:8px;font-size:14px;">
+        <span style="color:var(--sub);font-size:13px;">~</span>
+        <input type="date" id="xl-to"   style="flex:1;min-width:130px;padding:8px;border:1.5px solid var(--bd);border-radius:8px;font-size:14px;">
+      </div>
+
+      <!-- 팀 선택 -->
+      <div style="font-size:12px;font-weight:700;color:var(--tx);margin-bottom:6px;">👥 팀 선택</div>
+      <div class="field" style="margin-bottom:12px;">
+        <select id="xl-team-sel" style="padding:10px;border:1.5px solid var(--bd);border-radius:8px;font-size:14px;">
+          <option value="__ALL__">전체 팀</option>
+        </select>
+      </div>
+
+      <!-- 추출 항목 선택 -->
+      <div style="font-size:12px;font-weight:700;color:var(--tx);margin-bottom:8px;">📋 추출 항목</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--gyb);border-radius:8px;cursor:pointer;">
+          <input type="checkbox" id="xl-tbm"  checked style="width:20px;height:20px;accent-color:var(--pr);">
+          <div><div style="font-size:13px;font-weight:700;">📄 TBM 회의이력</div>
+          <div style="font-size:11px;color:var(--sub);">날짜·팀·장소·작업내용·교육담당자·위험요인·안전수칙</div></div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--gyb);border-radius:8px;cursor:pointer;">
+          <input type="checkbox" id="xl-sig"  checked style="width:20px;height:20px;accent-color:var(--pr);">
+          <div><div style="font-size:13px;font-weight:700;">✍️ 서명 현황</div>
+          <div style="font-size:11px;color:var(--sub);">날짜·팀·이름·직책·서명여부·서명시각</div></div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--gyb);border-radius:8px;cursor:pointer;">
+          <input type="checkbox" id="xl-edu"  checked style="width:20px;height:20px;accent-color:var(--pr);">
+          <div><div style="font-size:13px;font-weight:700;">⏱️ 교육시간 집계</div>
+          <div style="font-size:11px;color:var(--sub);">이름·팀·직책·총참여횟수·총교육시간(분/시간)</div></div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--gyb);border-radius:8px;cursor:pointer;">
+          <input type="checkbox" id="xl-emp" style="width:20px;height:20px;accent-color:var(--pr);">
+          <div><div style="font-size:13px;font-weight:700;">👥 직원 목록</div>
+          <div style="font-size:11px;color:var(--sub);">이름·팀·직책·가입일</div></div>
+        </label>
+      </div>
+
+      <div id="xl-status" style="display:none;background:var(--prl);border-radius:8px;padding:10px;font-size:13px;color:var(--pr);text-align:center;margin-bottom:10px;"></div>
+      <button class="btn btn-gr" onclick="exportExcel()" style="font-size:14px;">📥 엑셀 다운로드 (.xlsx)</button>
     </div>
   </div>
 
@@ -757,8 +877,10 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
       <div class="field"><label>관리감독자 이름</label><input type="text" id="adm-cfg-supervisor" placeholder="홍길동"></div>
       <div class="field"><label>관리감독자 로그인 비밀번호</label><input type="password" id="adm-cfg-suppw"></div>
       <div style="height:1px;background:var(--bd);margin:10px 0;"></div>
-      <div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:6px;">🔐 관리자 접속 비밀번호</div>
+      <div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:6px;">🔐 관리자 접속 비밀번호 (전체 권한)</div>
       <div class="field"><input type="password" id="adm-cfg-adminpw" placeholder="관리자 비밀번호 변경"></div>
+      <div style="font-size:12px;font-weight:700;color:var(--or);margin-bottom:6px;">👁️ 조회 전용 비밀번호 (읽기·엑셀만 가능)</div>
+      <div class="field"><input type="password" id="adm-cfg-viewerpw" placeholder="조회 전용 비밀번호 변경"></div>
       <div style="height:1px;background:var(--bd);margin:10px 0;"></div>
       <div style="font-size:12px;font-weight:700;color:var(--or);margin-bottom:6px;">🔒 관리감독자 등록 비밀번호</div>
       <div class="field"><input type="password" id="adm-cfg-regpw" placeholder="등록 비밀번호 변경"></div>
@@ -849,6 +971,31 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
     </div>
   </div>
 </div>
+
+<!-- ══ 관리자 TBM 시간 수정 모달 ══ -->
+<div class="pw-modal-bg" id="adm-time-edit-modal">
+  <div class="pw-modal" style="max-width:360px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <h3 style="margin:0;">⏰ TBM 시간 수정</h3>
+      <button onclick="closeAdmTimeEdit()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--sub);">×</button>
+    </div>
+    <div class="pw-sub" id="adm-time-edit-sub">시작/종료 시간을 수정합니다.</div>
+    <div style="background:var(--prl);border-radius:8px;padding:10px;font-size:12px;color:var(--pr);margin-bottom:12px;line-height:1.6;">
+      ⏱ 교육시간 = 종료시간 - 시작시간 (최소 10분 적용)<br>
+      종료시간 미입력 시 마지막 서명 시각 자동 적용
+    </div>
+    <div class="row2">
+      <div class="field"><label>시작 시간</label><input type="time" id="adm-edit-starttime" oninput="previewAdmTime()"></div>
+      <div class="field"><label>종료 시간</label><input type="time" id="adm-edit-endtime" oninput="previewAdmTime()"></div>
+    </div>
+    <div id="adm-time-edit-preview" style="background:var(--grb);border-radius:8px;padding:10px;font-size:13px;color:var(--gr);font-weight:700;text-align:center;margin-bottom:12px;display:none;"></div>
+    <div id="adm-time-edit-err" style="display:none;background:var(--rdb);color:var(--rd);border-radius:8px;padding:10px;font-size:13px;margin-bottom:10px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-gy" onclick="closeAdmTimeEdit()" style="flex:1;">취소</button>
+      <button class="btn btn-pr" onclick="saveAdmTimeEdit()" style="flex:1;">💾 저장</button>
+    </div>
+  </div>
+</div>
 <div class="pw-modal-bg" id="admin-pdf-modal">
   <div class="pw-modal" style="max-width:400px;max-height:85vh;overflow-y:auto;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -886,7 +1033,7 @@ const LS = localStorage;
 let DB = null;
 let CFG = {
   company:'', supervisor:'', supervisorPw:'0000',
-  regPw:'1234', adminPw:'1234',
+  regPw:'1234', adminPw:'1234', viewerPw:'view1234',
   teams:['공급관리팀','안전관리팀','고객지원팀','기술팀','영업팀','경영관리팀','재무관리팀','임실지사','부안지사','진안지사'],
   ranks:['사원','계장','대리','과장','차장','부장','본부장','이사']
 };
@@ -947,6 +1094,7 @@ window.onload = function(){
       if(sc.supervisorPw) CFG.supervisorPw = sc.supervisorPw;
       if(sc.regPw)        CFG.regPw        = sc.regPw;
       if(sc.adminPw)      CFG.adminPw      = sc.adminPw;
+      if(sc.viewerPw)     CFG.viewerPw     = sc.viewerPw;
     }
     // 항상 파일에 정의된 팀/직책으로 캐시 갱신
     const toSave = JSON.parse(LS.getItem('tbm_cfg')||'{}');
@@ -1433,6 +1581,7 @@ function lStep(n){
 async function saveTBM(){
   const date=document.getElementById('t-date').value;
   const time=document.getElementById('t-time').value;
+  const endTime=document.getElementById('t-endtime').value||'';
   const loc=document.getElementById('t-loc').value.trim();
   const work=document.getElementById('t-work').value.trim();
   const danger=document.getElementById('t-danger').value.trim();
@@ -1442,7 +1591,7 @@ async function saveTBM(){
   const lead=document.getElementById('t-lead').value||CUR.name;
   const supervisor=document.getElementById('t-supervisor').value||CFG.supervisor||'';
   if(!date||!loc||!work||!danger||!safety){ alert2('입력 오류','날짜·장소·작업내용·위험요인·안전수칙은 필수입니다.'); return; }
-  TBM={date,time,loc,work,lead,supervisor,danger,safety,ppe,note,team:LEAD_TEAM,company:CFG.company};
+  TBM={date,time,endTime,loc,work,lead,supervisor,danger,safety,ppe,note,team:LEAD_TEAM,company:CFG.company};
   LS.setItem('tbm_data',JSON.stringify(TBM));
   setSS('ing','TBM 저장 중...');
   try{
@@ -1459,8 +1608,8 @@ async function loadTBM(){
     const data=await dbGet('tbm/'+LEAD_TEAM+'/'+dbKey(date));
     if(data){
       TBM=data;
-      ['date','time','loc','work','danger','safety','ppe','note'].forEach(function(k){
-        const el=document.getElementById('t-'+k); if(el&&data[k]) el.value=data[k];
+      ['date','time','endtime','loc','work','danger','safety','ppe','note'].forEach(function(k){
+        const el=document.getElementById('t-'+k); if(el&&data[k==='endtime'?'endTime':k]) el.value=data[k==='endtime'?'endTime':k];
       });
       setSS('ok','TBM 불러오기 완료 ✓');
     }
@@ -1992,7 +2141,7 @@ async function loadMemberTBM(team){
 function renderTBMHtml(t){
   return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">'
     +'<span class="chip chip-bl">'+t.date+'</span>'
-    +'<span class="chip chip-bl">'+( t.time||'')+'</span>'
+    +'<span class="chip chip-bl">'+( t.time||'')+'</span>'+(t.endTime?'<span class="chip chip-gr">~'+t.endTime+'</span>':'')
     +'<span class="chip chip-or">'+( t.loc||'')+'</span></div>'
     +'<div class="tbm-sec"><h4>🔧 작업 내용</h4><p>'+(t.work||'-')+'</p></div>'
     +'<div class="tbm-sec"><h4>⚠️ 위험 요인</h4><p>'+(t.danger||'-')+'</p></div>'
@@ -2470,7 +2619,7 @@ function logoutAdmin(){
 }
 
 function aTab(n){
-  [0,1,2,3,4].forEach(function(i){
+  [0,1,2,3,4,5,6].forEach(function(i){
     const dt=document.getElementById('adt'+i);
     const dc=document.getElementById('adc'+i);
     if(dt) dt.classList.toggle('on',i===n);
@@ -2488,14 +2637,29 @@ function aTab(n){
     const sel=document.getElementById('adm-hist-team');
     sel.innerHTML='<option value="__ALL__">📋 전체 팀</option>'+CFG.teams.map(function(t){ return '<option>'+t+'</option>'; }).join('');
     document.getElementById('adm-hist-detail-card').style.display='none';
-    aLoadHistory(); // 전체 탭 기본 자동 로드
+    aLoadHistory();
+  }
+  if(n===6){
+    // 엑셀 추출 탭 초기화
+    const xs=document.getElementById('xl-team-sel');
+    if(xs) xs.innerHTML='<option value="__ALL__">전체 팀</option>'+CFG.teams.map(function(t){ return '<option>'+t+'</option>'; }).join('');
+    setXlPeriod('month');
+    // 조회 전용 모드: 설정/직원 수정 탭 숨기기
+    applyViewerMode();
   }
   if(n===4){
     document.getElementById('adm-cfg-company').value    = CFG.company||'';
     document.getElementById('adm-cfg-supervisor').value = CFG.supervisor||'';
     document.getElementById('adm-cfg-suppw').value      = CFG.supervisorPw||'';
     document.getElementById('adm-cfg-adminpw').value    = CFG.adminPw||'1234';
+    document.getElementById('adm-cfg-viewerpw').value   = CFG.viewerPw||'view1234';
     document.getElementById('adm-cfg-regpw').value      = CFG.regPw||'1234';
+  }
+  if(n===5){
+    // 교육시간 탭 초기화
+    const sel=document.getElementById('edu-team-sel');
+    if(sel) sel.innerHTML='<option value="__ALL__">전체 팀</option>'+CFG.teams.map(function(t){ return '<option>'+t+'</option>'; }).join('');
+    setEduPeriod('month'); // 이번 달 기본
   }
 }
 
@@ -2781,6 +2945,8 @@ function aAdminResetPw(key, name){
 }
 
 // ── TBM 이력 ──
+let ADM_HIST_DATE_FOR_EDIT=''; // 시간 수정용 날짜 저장
+
 async function aLoadHistory(){
   const teamVal=document.getElementById('adm-hist-team').value;
   ADM_HIST_TEAM=teamVal;
@@ -2812,7 +2978,8 @@ async function aLoadHistory(){
 }
 
 async function aLoadHistDetail(team, date){
-  ADM_HIST_TEAM=team; // PDF 출력 시 올바른 팀 참조
+  ADM_HIST_TEAM=team;
+  ADM_HIST_DATE_FOR_EDIT=date; // 시간 수정용
   const card=document.getElementById('adm-hist-detail-card');
   card.style.display='block';
   document.getElementById('adm-hist-detail-title').textContent=team+' - '+date;
@@ -2847,16 +3014,642 @@ async function aGenPDFFromHistory(){
   TBM=prev.tbm; SIGS=prev.sigs; ASSIGNED=prev.assigned; LEAD_TEAM=prev.team;
 }
 
+// ══════════════════════════════════════════════════════════
+// 교육시간 분석
+// 시작: tbm.time (회의 시작 시각, HH:MM)
+// 종료: 마지막 서명의 savedAt (timestamp ms)
+// 교육시간 = 종료 - 시작, 최소 10분 보장
+// ══════════════════════════════════════════════════════════
+let EDU_FROM='', EDU_TO='', EDU_PERIOD='month';
+
+function setEduPeriod(period){
+  EDU_PERIOD=period;
+  document.querySelectorAll('.ep-btn').forEach(function(b){
+    var isOn=b.id==='ep-'+period;
+    b.style.background  =isOn?'var(--pr)':'#fff';
+    b.style.color       =isOn?'#fff':'var(--sub)';
+    b.style.borderColor =isOn?'var(--pr)':'var(--bd)';
+  });
+  var customDiv=document.getElementById('edu-custom-range');
+  if(period==='custom'){ customDiv.style.display='flex'; return; }
+  customDiv.style.display='none';
+  var now=new Date(), y=now.getFullYear(), m=now.getMonth();
+  var pad=function(n){ return String(n).padStart(2,'0'); };
+  var fmt=function(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
+  if(period==='month'){
+    EDU_FROM=y+'-'+pad(m+1)+'-01'; EDU_TO=fmt(new Date(y,m+1,0));
+  } else if(period==='last'){
+    EDU_FROM=(m===0?(y-1)+'-12':y+'-'+pad(m))+'-01'; EDU_TO=fmt(new Date(y,m,0));
+  } else if(period==='3month'){
+    EDU_FROM=fmt(new Date(y,m-2,1)); EDU_TO=fmt(new Date(y,m+1,0));
+  } else if(period==='year'){
+    EDU_FROM=y+'-01-01'; EDU_TO=y+'-12-31';
+  }
+  aLoadEduTime();
+}
+
+/* tbm.time (HH:MM) + 날짜 → Date 객체 */
+function hmToDate(dateStr, hmStr){
+  if(!dateStr||!hmStr||hmStr.indexOf(':')<0) return null;
+  var p=hmStr.split(':');
+  var d=new Date(dateStr);
+  d.setHours(parseInt(p[0]),parseInt(p[1]),0,0);
+  return isNaN(d.getTime())?null:d;
+}
+
+function minToStr(min){
+  if(min===null||min===undefined||isNaN(min)||min<0) return '-';
+  if(min<60) return min+'분';
+  var h=Math.floor(min/60), m2=min%60;
+  return h+'시간'+(m2>0?' '+m2+'분':'');
+}
+
+async function aLoadEduTime(){
+  if(EDU_PERIOD==='custom'){
+    EDU_FROM=document.getElementById('edu-from').value;
+    EDU_TO  =document.getElementById('edu-to').value;
+    if(!EDU_FROM||!EDU_TO) return;
+  }
+  var teamVal=document.getElementById('edu-team-sel').value;
+  var el=document.getElementById('edu-result');
+  var summaryCard=document.getElementById('edu-summary-card');
+  var summaryEl=document.getElementById('edu-summary-content');
+  el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:20px;"><span class="spin"></span>분석 중...</p>';
+  summaryCard.style.display='none';
+
+  var teamsToLoad=(!teamVal||teamVal==='__ALL__')?CFG.teams:[teamVal];
+
+  try{
+    /* ── 1. 기간 내 TBM + 서명 데이터 수집 ── */
+    var sessions=[];
+    await Promise.all(teamsToLoad.map(async function(team){
+      var tbmList=await dbGet('tbm/'+team);
+      if(!tbmList) return;
+      var filtered=Object.values(tbmList).filter(Boolean)
+        .filter(function(t){ return t.date>=EDU_FROM && t.date<=EDU_TO; });
+      await Promise.all(filtered.map(async function(tbm){
+        var res=await Promise.all([
+          dbGet('sigs/'+team+'/'+dbKey(tbm.date)),
+          dbGet('assignments/'+team+'/'+dbKey(tbm.date))
+        ]);
+        var sigs    =res[0]?Object.values(res[0]).filter(Boolean):[];
+        var assigned=res[1]?Object.values(res[1]).filter(Boolean):[];
+        sessions.push({tbm:Object.assign({},tbm,{_team:team}),sigs,assigned});
+      }));
+    }));
+
+    if(!sessions.length){
+      el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:20px;">해당 기간에 TBM 데이터가 없습니다.</p>';
+      return;
+    }
+
+    /* ── 2. TBM별 교육시간 계산 ──
+       우선순위 1: tbm.time ~ tbm.endTime (둘 다 입력된 경우)
+       우선순위 2: tbm.time ~ 마지막 sig.savedAt
+       최소 10분 보장, 최대 240분                              */
+    sessions.forEach(function(s){
+      var tbm=s.tbm, sigs=s.sigs;
+      var startDate=hmToDate(tbm.date, tbm.time);
+
+      var durationMin=10; // 기본
+
+      // ① endTime 직접 입력된 경우 (가장 정확)
+      if(tbm.time && tbm.endTime){
+        var endDate=hmToDate(tbm.date, tbm.endTime);
+        if(endDate && startDate){
+          var diffMin=Math.round((endDate.getTime()-startDate.getTime())/60000);
+          if(diffMin>0) durationMin=Math.max(10,Math.min(diffMin,240));
+        }
+      }
+      // ② endTime 없으면 마지막 sig.savedAt 사용
+      else {
+        var sigTs=sigs.filter(function(sg){ return sg.savedAt; })
+                      .map(function(sg){ return Number(sg.savedAt); });
+        var lastSigTs=sigTs.length?Math.max.apply(null,sigTs):null;
+        if(startDate && lastSigTs){
+          var diffMin2=Math.round((lastSigTs-startDate.getTime())/60000);
+          if(diffMin2>10) durationMin=Math.min(diffMin2,240);
+        }
+      }
+      s.durationMin=durationMin;
+    });
+
+    /* ── 3. 인원별 집계 (서명자만 이수 인정) ── */
+    var personMap={};
+    sessions.forEach(function(s){
+      var tbm=s.tbm, sigs=s.sigs, assigned=s.assigned, dur=s.durationMin;
+      assigned.forEach(function(m){
+        var didSign=sigs.some(function(sg){ return sg.name===m.name; });
+        if(!didSign) return;
+        if(!personMap[m.name]){
+          personMap[m.name]={
+            name:m.name, team:m.team||tbm._team, rank:m.rank,
+            totalMin:0, count:0, sessions:[]
+          };
+        }
+        personMap[m.name].totalMin+=dur;
+        personMap[m.name].count+=1;
+        personMap[m.name].sessions.push({
+          date:tbm.date, team:tbm._team, startTime:tbm.time||'-', durationMin:dur
+        });
+      });
+    });
+
+    var persons=Object.values(personMap)
+      .sort(function(a,b){ return (a.team+a.name)>(b.team+b.name)?1:-1; });
+
+    if(!persons.length){
+      el.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:20px;">해당 기간 서명 완료 데이터가 없습니다.</p>';
+      return;
+    }
+
+    /* ── 4. 요약 카드 ── */
+    var totalSessions=sessions.length;
+    var totalPeople=persons.length;
+    var avgMin=Math.round(persons.reduce(function(s,p){ return s+p.totalMin; },0)/totalPeople);
+    var maxP=persons.reduce(function(a,b){ return a.totalMin>b.totalMin?a:b; });
+
+    summaryEl.innerHTML=
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
+      +'<div style="background:var(--prl);border-radius:10px;padding:12px;text-align:center;">'
+      +'<div style="font-size:22px;font-weight:800;color:var(--pr);">'+totalSessions+'회</div>'
+      +'<div style="font-size:11px;color:var(--sub);">총 TBM 횟수</div></div>'
+      +'<div style="background:var(--grb);border-radius:10px;padding:12px;text-align:center;">'
+      +'<div style="font-size:22px;font-weight:800;color:var(--gr);">'+totalPeople+'명</div>'
+      +'<div style="font-size:11px;color:var(--sub);">참여 인원</div></div>'
+      +'<div style="background:var(--orb);border-radius:10px;padding:12px;text-align:center;">'
+      +'<div style="font-size:19px;font-weight:800;color:var(--or);">'+minToStr(avgMin)+'</div>'
+      +'<div style="font-size:11px;color:var(--sub);">1인 평균 누적</div></div>'
+      +'<div style="background:var(--purb);border-radius:10px;padding:12px;text-align:center;">'
+      +'<div style="font-size:16px;font-weight:800;color:var(--pur);">'+minToStr(maxP.totalMin)+'</div>'
+      +'<div style="font-size:11px;color:var(--sub);">최다 ('+maxP.name+')</div></div>'
+      +'</div>'
+      +'<div style="background:var(--gyb);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--sub);line-height:1.6;">'
+      +'📅 '+EDU_FROM+' ~ '+EDU_TO+'<br>'
+      +'⏱ 교육시간 기준: ① 시작~종료시간 직접입력 ② 시작시각~마지막서명 / 최소 10분'
+      +'</div>';
+    summaryCard.style.display='block';
+
+    /* ── 5. 팀별 인원 목록 렌더 ── */
+    var byTeam={};
+    persons.forEach(function(p){
+      if(!byTeam[p.team]) byTeam[p.team]=[];
+      byTeam[p.team].push(p);
+    });
+    var maxTotal=Math.max.apply(null,persons.map(function(p){ return p.totalMin; }))||1;
+
+    el.innerHTML=Object.keys(byTeam).sort().map(function(team){
+      var members=byTeam[team];
+      var teamTotal=members.reduce(function(s,p){ return s+p.totalMin; },0);
+      var teamAvg=Math.round(teamTotal/members.length);
+      return '<div style="margin-bottom:16px;">'
+        +'<div style="background:var(--prl);padding:8px 12px;border-radius:8px;margin-bottom:6px;'
+        +'display:flex;align-items:center;justify-content:space-between;">'
+        +'<span style="font-size:13px;font-weight:800;color:var(--pr);">'+team+'</span>'
+        +'<span style="font-size:11px;color:var(--pr);">팀 평균 '+minToStr(teamAvg)+' · '+members.length+'명</span>'
+        +'</div>'
+        +members.map(function(p){
+          var pct=Math.round(p.totalMin/maxTotal*100);
+          var bar=p.totalMin>=60?'var(--gr)':p.totalMin>=30?'var(--or)':'var(--rd)';
+          return '<div style="padding:10px 4px;border-bottom:1px solid var(--bd);">'
+            /* 이름 + 총시간 + 횟수 */
+            +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
+            +'<div style="flex:1;">'
+            +'<span style="font-size:14px;font-weight:700;">'+p.name+'</span>'
+            +'<span style="font-size:11px;color:var(--sub);margin-left:6px;">'+p.rank+'</span>'
+            +'</div>'
+            +'<span style="font-size:15px;font-weight:800;color:'+bar+';">'+minToStr(p.totalMin)+'</span>'
+            +'<span style="font-size:11px;color:var(--sub);background:var(--gyb);'
+            +'padding:2px 8px;border-radius:10px;white-space:nowrap;">'+p.count+'회</span>'
+            +'</div>'
+            /* 진행 바 */
+            +'<div style="background:var(--gyb);border-radius:20px;height:8px;overflow:hidden;margin-bottom:6px;">'
+            +'<div style="height:100%;border-radius:20px;background:'+bar+';width:'+pct+'%;transition:width .5s;"></div></div>'
+            /* 세션별 태그 (최대 5개) */
+            +'<div style="display:flex;flex-wrap:wrap;gap:4px;">'
+            +p.sessions.slice(0,5).map(function(s){
+              return '<span style="font-size:10px;background:var(--gyb);color:var(--sub);'
+                +'padding:2px 7px;border-radius:6px;white-space:nowrap;">'
+                +s.date.slice(5)+' '+s.startTime+' · '+minToStr(s.durationMin)+'</span>';
+            }).join('')
+            +(p.sessions.length>5
+              ?'<span style="font-size:10px;color:var(--pr);padding:2px 4px;">+'+(p.sessions.length-5)+'건 더보기</span>':'')
+            +'</div>'
+            +'</div>';
+        }).join('')
+        +'</div>';
+    }).join('');
+
+  }catch(e){
+    el.innerHTML='<p style="color:var(--rd);font-size:13px;text-align:center;padding:20px;">분석 실패: '+e.message+'</p>';
+  }
+}
+
+
+// ══════════════════════════════════════════════════════════
+// 관리자 TBM 시간 수정
+// ══════════════════════════════════════════════════════════
+function openAdmTimeEdit(){
+  if(!ADM_HIST_TEAM||!ADM_HIST_DATE_FOR_EDIT){ alert2('선택 필요','이력 항목을 먼저 선택해주세요.'); return; }
+  const tbm=ADM_HIST_TBM||{};
+  document.getElementById('adm-time-edit-sub').textContent=ADM_HIST_TEAM+' · '+ADM_HIST_DATE_FOR_EDIT+' TBM 시간 수정';
+  document.getElementById('adm-edit-starttime').value=tbm.time||'';
+  document.getElementById('adm-edit-endtime').value=tbm.endTime||'';
+  document.getElementById('adm-time-edit-err').style.display='none';
+  previewAdmTime();
+  document.getElementById('adm-time-edit-modal').classList.add('open');
+}
+
+function closeAdmTimeEdit(){
+  document.getElementById('adm-time-edit-modal').classList.remove('open');
+}
+
+function previewAdmTime(){
+  const st=document.getElementById('adm-edit-starttime').value;
+  const et=document.getElementById('adm-edit-endtime').value;
+  const prev=document.getElementById('adm-time-edit-preview');
+  if(st&&et){
+    const [sh,sm]=st.split(':').map(Number);
+    const [eh,em]=et.split(':').map(Number);
+    let diff=(eh*60+em)-(sh*60+sm);
+    if(diff<0) diff+=1440; // 자정 넘기는 경우
+    const actual=Math.max(10,diff);
+    const h=Math.floor(actual/60), m=actual%60;
+    prev.textContent='⏱ 교육시간: '+(h>0?h+'시간 ':'')+m+'분'+(diff<10?' (최소 10분 적용)':'');
+    prev.style.display='block';
+  } else if(st&&!et){
+    prev.textContent='종료시간 미입력 → 마지막 서명 시각 자동 적용 (최소 10분)';
+    prev.style.display='block';
+    prev.style.background='var(--orb)'; prev.style.color='var(--or)';
+    return;
+  } else {
+    prev.style.display='none';
+  }
+  prev.style.background='var(--grb)'; prev.style.color='var(--gr)';
+}
+
+async function saveAdmTimeEdit(){
+  const st=document.getElementById('adm-edit-starttime').value;
+  const et=document.getElementById('adm-edit-endtime').value;
+  const errEl=document.getElementById('adm-time-edit-err');
+  errEl.style.display='none';
+  if(!st){ errEl.textContent='시작 시간은 필수입니다.'; errEl.style.display='block'; return; }
+  // 종료가 있을 때 시작보다 늦어야 함
+  if(et){
+    const [sh,sm]=st.split(':').map(Number);
+    const [eh,em]=et.split(':').map(Number);
+    const diff=(eh*60+em)-(sh*60+sm);
+    if(diff<=0){ errEl.textContent='종료 시간이 시작 시간보다 늦어야 합니다.'; errEl.style.display='block'; return; }
+  }
+  try{
+    const path='tbm/'+ADM_HIST_TEAM+'/'+dbKey(ADM_HIST_DATE_FOR_EDIT);
+    await dbUpdate(path,{time:st, endTime:et||''});
+    // 로컬 캐시 업데이트
+    if(ADM_HIST_TBM){ ADM_HIST_TBM.time=st; ADM_HIST_TBM.endTime=et||''; }
+    closeAdmTimeEdit();
+    alert2('수정 완료','TBM 시간이 수정되었습니다.\n시작: '+st+(et?' / 종료: '+et:' (종료 자동)'));
+    // 상세 화면 새로고침
+    aLoadHistDetail(ADM_HIST_TEAM, ADM_HIST_DATE_FOR_EDIT);
+  }catch(e){ errEl.textContent='저장 실패: '+e.message; errEl.style.display='block'; }
+}
+
+
+// ══════════════════════════════════════════════════════════
+// 조회 전용 관리자 모드
+// ══════════════════════════════════════════════════════════
+let ADM_VIEWER_MODE = false;
+let ADM_LOGIN_TYPE  = 'full'; // 'full' | 'view'
+
+function switchAdmLoginTab(type){
+  ADM_LOGIN_TYPE=type;
+  const isView=(type==='view');
+  document.getElementById('sw-adm-full').classList.toggle('on',!isView);
+  document.getElementById('sw-adm-view').classList.toggle('on',isView);
+  document.getElementById('adm-full-desc').style.display=isView?'none':'block';
+  document.getElementById('adm-view-desc').style.display=isView?'block':'none';
+  document.getElementById('adm-pw-label').textContent=isView?'조회 전용 비밀번호':'관리자 비밀번호';
+  document.getElementById('adm-pw').value='';
+  document.getElementById('adm-login-err').style.display='none';
+}
+
+function applyViewerMode(){
+  // 조회 전용: 직원관리(탭2), 설정(탭4) 탭 숨김/비활성화
+  const restrict=['adt2','adt4'];
+  restrict.forEach(function(id){
+    const el=document.getElementById(id);
+    if(!el) return;
+    if(ADM_VIEWER_MODE){
+      el.style.opacity='0.3';
+      el.style.pointerEvents='none';
+    } else {
+      el.style.opacity='';
+      el.style.pointerEvents='';
+    }
+  });
+  // 상단 바 표시
+  const bar=document.getElementById('adm-viewer-bar');
+  if(bar) bar.style.display=ADM_VIEWER_MODE?'block':'none';
+}
+
+// doAdminLogin 교체: viewerPw 체크 추가
+(function patchAdminLogin(){
+  const orig=window.doAdminLogin;
+  window.doAdminLogin=function(){
+    const pw=document.getElementById('adm-pw').value;
+    const errEl=document.getElementById('adm-login-err');
+    errEl.style.display='none';
+    if(!pw){ errEl.textContent='비밀번호를 입력해주세요.'; errEl.style.display='block'; return; }
+    const adminPw=CFG.adminPw||'1234';
+    const viewerPw=CFG.viewerPw||'view1234';
+    const isAdmin=(pw===adminPw);
+    const isViewer=(ADM_LOGIN_TYPE==='view' && pw===viewerPw);
+    if(!isAdmin && !isViewer){
+      errEl.textContent='비밀번호가 틀렸습니다.'; errEl.style.display='block';
+      document.getElementById('adm-pw').value='';
+      document.getElementById('adm-pw').style.animation='shake .4s';
+      setTimeout(function(){ document.getElementById('adm-pw').style.animation=''; },400);
+      return;
+    }
+    // 관리자 전체 권한: pw===adminPw 이면 항상 full
+    ADM_VIEWER_MODE = !isAdmin && isViewer;
+    ADM_LOGGED=true;
+    document.getElementById('adm-pw').value='';
+    go('admin-dash');
+    aTab(0);
+    applyViewerMode();
+  };
+})();
+
+// ══════════════════════════════════════════════════════════
+// 엑셀 추출
+// ══════════════════════════════════════════════════════════
+let XL_FROM='', XL_TO='', XL_PERIOD='month';
+
+function setXlPeriod(period){
+  XL_PERIOD=period;
+  document.querySelectorAll('.xlp-btn').forEach(function(b){
+    const isOn=b.id==='xlp-'+period;
+    b.style.background  =isOn?'var(--pr)':'#fff';
+    b.style.color       =isOn?'#fff':'var(--sub)';
+    b.style.borderColor =isOn?'var(--pr)':'var(--bd)';
+  });
+  const cd=document.getElementById('xl-custom-range');
+  if(cd) cd.style.display=(period==='custom')?'flex':'none';
+  if(period==='custom') return;
+
+  const now=new Date(), y=now.getFullYear(), m=now.getMonth();
+  const pad=function(n){ return String(n).padStart(2,'0'); };
+  const fmt=function(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
+
+  if(period==='month'){       XL_FROM=y+'-'+pad(m+1)+'-01'; XL_TO=fmt(new Date(y,m+1,0)); }
+  else if(period==='last'){   XL_FROM=(m===0?(y-1)+'-12':y+'-'+pad(m))+'-01'; XL_TO=fmt(new Date(y,m,0)); }
+  else if(period==='3month'){ XL_FROM=fmt(new Date(y,m-2,1)); XL_TO=fmt(new Date(y,m+1,0)); }
+  else if(period==='year'){   XL_FROM=y+'-01-01'; XL_TO=y+'-12-31'; }
+  else if(period==='all'){    XL_FROM='2000-01-01'; XL_TO='2099-12-31'; }
+}
+
+async function exportExcel(){
+  // 기간 확정
+  if(XL_PERIOD==='custom'){
+    XL_FROM=document.getElementById('xl-from').value;
+    XL_TO  =document.getElementById('xl-to').value;
+    if(!XL_FROM||!XL_TO){ alert2('기간 오류','시작일과 종료일을 입력해주세요.'); return; }
+  }
+  if(!XL_FROM) setXlPeriod('month');
+
+  const doTBM=document.getElementById('xl-tbm').checked;
+  const doSig=document.getElementById('xl-sig').checked;
+  const doEdu=document.getElementById('xl-edu').checked;
+  const doEmp=document.getElementById('xl-emp').checked;
+  if(!doTBM&&!doSig&&!doEdu&&!doEmp){ alert2('선택 필요','추출할 항목을 1개 이상 선택해주세요.'); return; }
+
+  const statusEl=document.getElementById('xl-status');
+  statusEl.style.display='block';
+  statusEl.textContent='⏳ 데이터 수집 중...';
+
+  const teamVal=document.getElementById('xl-team-sel').value;
+  const teams=(!teamVal||teamVal==='__ALL__')?CFG.teams:[teamVal];
+  const wb=XLSX.utils.book_new();
+
+  try{
+    /* ─── 1. TBM 회의이력 시트 ─── */
+    if(doTBM){
+      statusEl.textContent='📄 TBM 이력 수집 중...';
+
+      /* ── 피벗 구조:
+         고정 열: 날짜 | 시작/종료시간 | 팀 | 장소 | 작업내용 | 위험요인 | 안전수칙 | 회의완료여부
+         가변 열: 참여자 이름 (전체 TBM의 모든 참여자 이름 수집 후 열 배치)
+         각 인원 셀: 서명 완료 시 교육시간(분) 숫자, 미서명/불참은 빈칸
+      ── */
+      const FIXED=['날짜','시작/종료시간','팀','장소','작업내용','위험요인','안전수칙','회의완료여부'];
+      const tbmRows=[]; // {tbm, sigs, assigned, dur, doneInfo, team}
+
+      await Promise.all(teams.map(async function(team){
+        const data=await dbGet('tbm/'+team);
+        if(!data) return;
+        const entries=Object.values(data).filter(Boolean)
+          .filter(function(t){ return t.date>=XL_FROM&&t.date<=XL_TO; })
+          .sort(function(a,b){ return a.date>b.date?1:-1; });
+        for(const t of entries){
+          const [aData,sigsData,doneData]=await Promise.all([
+            dbGet('assignments/'+team+'/'+dbKey(t.date)),
+            dbGet('sigs/'+team+'/'+dbKey(t.date)),
+            dbGet('meetings/'+team+'/'+dbKey(t.date)+'/done')
+          ]);
+          const assigned=aData?Object.values(aData).filter(Boolean):[];
+          const sigs    =sigsData?Object.values(sigsData).filter(Boolean):[];
+          const doneInfo=doneData?'완료':'미완료';
+
+          /* 교육시간 계산 */
+          let dur=10;
+          if(t.time&&t.endTime){
+            const [sh,sm]=t.time.split(':').map(Number);
+            const [eh,em]=t.endTime.split(':').map(Number);
+            const d2=(eh*60+em)-(sh*60+sm);
+            if(d2>0) dur=Math.max(10,Math.min(d2,240));
+          } else if(t.time){
+            const startD=hmToDate(t.date,t.time);
+            const sigTs=sigs.filter(function(s){ return s.savedAt; }).map(function(s){ return Number(s.savedAt); });
+            const lastTs=sigTs.length?Math.max.apply(null,sigTs):null;
+            if(startD&&lastTs){
+              const d2=Math.round((lastTs-startD.getTime())/60000);
+              if(d2>10) dur=Math.min(d2,240);
+            }
+          }
+
+          tbmRows.push({t,team,assigned,sigs,dur,doneInfo});
+        }
+      }));
+
+      /* 전체 참여자 이름 수집 (등장 순서 유지) */
+      const nameSet=[], nameSeen={};
+      tbmRows.forEach(function(r){
+        r.assigned.forEach(function(m){
+          if(!nameSeen[m.name]){ nameSeen[m.name]=true; nameSet.push(m.name); }
+        });
+      });
+      nameSet.sort(); // 가나다 순
+
+      /* 헤더 행 */
+      const header=FIXED.concat(nameSet);
+      const rows=[header];
+
+      /* 날짜 정렬 */
+      tbmRows.sort(function(a,b){ return a.t.date>b.t.date?1:-1; });
+
+      tbmRows.forEach(function(r){
+        const {t,team,assigned,sigs,dur,doneInfo}=r;
+        const timeStr=(t.time||'')+(t.endTime?'~'+t.endTime:'');
+        const fixed=[t.date,timeStr,team,t.loc||'',t.work||'',t.danger||'',t.safety||'',doneInfo];
+
+        /* 각 인원 열: 서명완료→교육시간(분), 참여자지정없음→'', 미서명→'' */
+        const assignedNames=new Set(assigned.map(function(m){ return m.name; }));
+        const signedNames  =new Set(sigs.map(function(s){ return s.name; }));
+        const personCols=nameSet.map(function(name){
+          if(!assignedNames.has(name)) return '';          // 이 TBM 비참여
+          if(!signedNames.has(name))   return '미서명';   // 참여자이나 미서명
+          return dur;                                       // 서명완료 → 교육시간(분)
+        });
+
+        rows.push(fixed.concat(personCols));
+      });
+
+      if(rows.length===1){ rows.push(['해당 기간 TBM 데이터 없음']); }
+
+      const ws=XLSX.utils.aoa_to_sheet(rows);
+
+      /* 열 너비 설정 */
+      const fixedWidths=[{wch:12},{wch:14},{wch:12},{wch:20},{wch:25},{wch:30},{wch:30},{wch:10}];
+      const personWidths=nameSet.map(function(){ return {wch:9}; });
+      ws['!cols']=fixedWidths.concat(personWidths);
+
+      /* 헤더 행 스타일 (배경색 등은 xlsxjs 기본 지원 안 됨, 셀 병합 없이 단순 구조) */
+      XLSX.utils.book_append_sheet(wb,ws,'TBM이력');
+    }
+
+    /* ─── 2. 서명 현황 시트 ─── */
+    if(doSig){
+      statusEl.textContent='✍️ 서명 현황 수집 중...';
+      const rows=[['날짜','팀','이름','직책','서명여부','서명시각','장소','작업내용']];
+      await Promise.all(teams.map(async function(team){
+        const tbmData=await dbGet('tbm/'+team);
+        if(!tbmData) return;
+        const entries=Object.values(tbmData).filter(Boolean)
+          .filter(function(t){ return t.date>=XL_FROM&&t.date<=XL_TO; })
+          .sort(function(a,b){ return a.date>b.date?1:-1; });
+        for(const t of entries){
+          const [aData,sigsData]=await Promise.all([
+            dbGet('assignments/'+team+'/'+dbKey(t.date)),
+            dbGet('sigs/'+team+'/'+dbKey(t.date))
+          ]);
+          const assigned=aData?Object.values(aData).filter(Boolean):[];
+          const sigs=sigsData?Object.values(sigsData).filter(Boolean):[];
+          assigned.forEach(function(m){
+            const sig=sigs.find(function(s){ return s.name===m.name; });
+            rows.push([t.date,team,m.name,m.rank,sig?'서명완료':'미서명',sig?sig.time:'',t.loc||'',t.work||'']);
+          });
+        }
+      }));
+      const ws=XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols']=[{wch:12},{wch:12},{wch:10},{wch:8},{wch:8},{wch:10},{wch:20},{wch:25}];
+      XLSX.utils.book_append_sheet(wb,ws,'서명현황');
+    }
+
+    /* ─── 3. 교육시간 집계 시트 ─── */
+    if(doEdu){
+      statusEl.textContent='⏱️ 교육시간 집계 중...';
+      const personMap={};
+      await Promise.all(teams.map(async function(team){
+        const tbmData=await dbGet('tbm/'+team);
+        if(!tbmData) return;
+        const entries=Object.values(tbmData).filter(Boolean)
+          .filter(function(t){ return t.date>=XL_FROM&&t.date<=XL_TO; });
+        for(const t of entries){
+          const [aData,sigsData]=await Promise.all([
+            dbGet('assignments/'+team+'/'+dbKey(t.date)),
+            dbGet('sigs/'+team+'/'+dbKey(t.date))
+          ]);
+          const assigned=aData?Object.values(aData).filter(Boolean):[];
+          const sigs=sigsData?Object.values(sigsData).filter(Boolean):[];
+          // 교육시간 계산
+          let dur=10;
+          if(t.time&&t.endTime){
+            const [sh,sm]=t.time.split(':').map(Number);
+            const [eh,em]=t.endTime.split(':').map(Number);
+            const d2=(eh*60+em)-(sh*60+sm);
+            if(d2>0) dur=Math.max(10,Math.min(d2,240));
+          } else if(t.time){
+            const startD=hmToDate(t.date,t.time);
+            const sigTs=sigs.filter(function(s){ return s.savedAt; }).map(function(s){ return Number(s.savedAt); });
+            const lastTs=sigTs.length?Math.max.apply(null,sigTs):null;
+            if(startD&&lastTs){ const d2=Math.round((lastTs-startD.getTime())/60000); if(d2>10) dur=Math.min(d2,240); }
+          }
+          assigned.forEach(function(m){
+            const did=sigs.some(function(s){ return s.name===m.name; });
+            if(!did) return;
+            if(!personMap[m.name]) personMap[m.name]={name:m.name,team:m.team||team,rank:m.rank,totalMin:0,count:0};
+            personMap[m.name].totalMin+=dur;
+            personMap[m.name].count+=1;
+          });
+        }
+      }));
+      const persons=Object.values(personMap).sort(function(a,b){ return (a.team+a.name)>(b.team+b.name)?1:-1; });
+      const rows=[['이름','팀','직책','참여횟수(회)','총교육시간(분)','총교육시간(시간분)']];
+      persons.forEach(function(p){
+        const h=Math.floor(p.totalMin/60), m2=p.totalMin%60;
+        rows.push([p.name,p.team,p.rank,p.count,p.totalMin,h+'시간'+(m2>0?' '+m2+'분':'')]);
+      });
+      const ws=XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols']=[{wch:10},{wch:12},{wch:8},{wch:10},{wch:12},{wch:14}];
+      XLSX.utils.book_append_sheet(wb,ws,'교육시간집계');
+    }
+
+    /* ─── 4. 직원 목록 시트 ─── */
+    if(doEmp){
+      statusEl.textContent='👥 직원 목록 수집 중...';
+      const data=await dbGet('users');
+      const rows=[['이름','팀','직책','역할','가입일시']];
+      if(data){
+        Object.values(data).filter(Boolean)
+          .filter(function(u){ return !teamVal||teamVal==='__ALL__'||u.team===teamVal; })
+          .sort(function(a,b){ return (a.team+a.name)>(b.team+b.name)?1:-1; })
+          .forEach(function(u){
+            const d=u.joinedAt?new Date(u.joinedAt).toLocaleString('ko-KR'):'';
+            rows.push([u.name,u.team||'',u.rank||'',u.role==='supervisor'?'관리감독자':'팀원',d]);
+          });
+      }
+      const ws=XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols']=[{wch:10},{wch:12},{wch:8},{wch:10},{wch:20}];
+      XLSX.utils.book_append_sheet(wb,ws,'직원목록');
+    }
+
+    /* ─── 다운로드 ─── */
+    statusEl.textContent='📥 파일 생성 중...';
+    const fn='TBM_'+( XL_PERIOD==='all'?'전체':XL_FROM+'~'+XL_TO)+'_'+(teamVal==='__ALL__'?'전체팀':teamVal)+'.xlsx';
+    XLSX.writeFile(wb,fn);
+    statusEl.textContent='✅ 다운로드 완료! ('+fn+')';
+    statusEl.style.background='var(--grb)';
+    statusEl.style.color='var(--gr)';
+    setTimeout(function(){ statusEl.style.background=''; statusEl.style.color=''; },3000);
+
+  }catch(e){
+    statusEl.textContent='❌ 오류: '+e.message;
+    statusEl.style.background='var(--rdb)';
+    statusEl.style.color='var(--rd)';
+  }
+}
+
 // ── 설정 저장 ──
 function aSaveCfg(){
   CFG.company      = (document.getElementById('adm-cfg-company')?.value||'').trim();
   CFG.supervisor   = (document.getElementById('adm-cfg-supervisor')?.value||'').trim();
   CFG.supervisorPw = (document.getElementById('adm-cfg-suppw')?.value||'0000');
   CFG.adminPw      = (document.getElementById('adm-cfg-adminpw')?.value||'1234');
+  CFG.viewerPw     = (document.getElementById('adm-cfg-viewerpw')?.value||'view1234');
   CFG.regPw        = (document.getElementById('adm-cfg-regpw')?.value||'1234');
   try{
     const toSave=JSON.parse(LS.getItem('tbm_cfg')||'{}');
-    Object.assign(toSave,{company:CFG.company,supervisor:CFG.supervisor,supervisorPw:CFG.supervisorPw,adminPw:CFG.adminPw,regPw:CFG.regPw,teams:CFG.teams,ranks:CFG.ranks});
+    Object.assign(toSave,{company:CFG.company,supervisor:CFG.supervisor,supervisorPw:CFG.supervisorPw,adminPw:CFG.adminPw,viewerPw:CFG.viewerPw,regPw:CFG.regPw,teams:CFG.teams,ranks:CFG.ranks});
     LS.setItem('tbm_cfg',JSON.stringify(toSave));
   }catch(e){}
   alert2('저장 완료','설정이 저장되었습니다.');
@@ -3092,6 +3885,7 @@ document.addEventListener('click', function(e){
   if(e.target.id==='admin-pdf-modal') closeAdminPdfModal();
   if(e.target.id==='emp-delete-modal') closeEmpDeleteModal();
   if(e.target.id==='emp-edit-modal') closeEmpEditModal();
+  if(e.target.id==='adm-time-edit-modal') closeAdmTimeEdit();
 });
 </script>
 </body>
