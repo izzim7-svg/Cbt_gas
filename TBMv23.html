@@ -1059,7 +1059,7 @@ let CFG = {
   teams:['공급관리팀','안전관리팀','고객지원팀','기술팀','영업팀','경영관리팀','재무관리팀','임실지사','부안지사','진안지사'],
   ranks:['사원','계장','대리','과장','차장','부장','본부장','이사']
 };
-let CUR = null; // 현재 로그인 사용자 {name, team, rank, role}
+let CUR = null; // 현재 로그인 사용자 {name:null, team:null, rank:null, role:null}
 let TBM = null;
 let SIGS = [];
 let ASSIGNED = []; // 이번 TBM 참여자 목록
@@ -1672,12 +1672,12 @@ function menuSignCard(){
 }
 
 function saveCfg(){
-  CFG.company      = (document.getElementById('cfg-company')?.value||'').trim();
-  CFG.supervisor   = (document.getElementById('cfg-supervisor')?.value||'').trim();
-  CFG.supervisorPw = (document.getElementById('cfg-sup-pw')?.value||'0000');
-  CFG.regPw        = (document.getElementById('cfg-reg-pw')?.value||'1234');
-  CFG.teams        = (document.getElementById('cfg-teams')?.value||'').split(',').map(function(t){ return t.trim(); }).filter(Boolean);
-  CFG.ranks        = (document.getElementById('cfg-ranks')?.value||'').split(',').map(function(r){ return r.trim(); }).filter(Boolean);
+  CFG.company      = ((document.getElementById('cfg-company')||{}).value||'').trim();
+  CFG.supervisor   = ((document.getElementById('cfg-supervisor')||{}).value||'').trim();
+  CFG.supervisorPw = ((document.getElementById('cfg-sup-pw')||{}).value||'0000');
+  CFG.regPw        = ((document.getElementById('cfg-reg-pw')||{}).value||'1234');
+  CFG.teams        = ((document.getElementById('cfg-teams')||{}).value||'').split(',').map(function(t){ return t.trim(); }).filter(Boolean);
+  CFG.ranks        = ((document.getElementById('cfg-ranks')||{}).value||'').split(',').map(function(r){ return r.trim(); }).filter(Boolean);
   LS.setItem('tbm_cfg', JSON.stringify(CFG));
   alert2('저장 완료','설정이 저장되었습니다.');
 }
@@ -2369,8 +2369,8 @@ async function submitSig(){
   const date=TBM?TBM.date:todayStr();
   const record={
     name:CUR.name, team:sigTeam, rank:CUR.rank,
-    time, date, sigImg, work:TBM?.work||'', loc:TBM?.loc||'',
-    supervisor:TBM?.supervisor||CFG.supervisor||'', savedAt:Date.now()
+    time, date, sigImg, work:(TBM&&TBM.work)||'', loc:(TBM&&TBM.loc)||'',
+    supervisor:(TBM&&TBM.supervisor)||CFG.supervisor||'', savedAt:Date.now()
   };
   setSS('ing','서명 저장 중...');
   try{
@@ -2987,7 +2987,7 @@ async function aAddEmployee(){
   try{
     const exists = await dbGet('users/'+safeKey(name));
     if(exists){ errEl.textContent='이미 등록된 이름입니다.'; errEl.style.display='block'; return; }
-    await dbSet('users/'+safeKey(name), {name, team, rank, pw, role:'member', joinedAt:Date.now()});
+    await dbSet('users/'+safeKey(name), {name:name, team:team, rank:rank, pw:pw, role:'member', joinedAt:Date.now()});
     document.getElementById('adm-add-name').value='';
     document.getElementById('adm-add-pw').value='';
     alert2('추가 완료', '['+name+'] ('+team+' / '+rank+') 직원이 추가되었습니다.');
@@ -3080,7 +3080,7 @@ async function confirmEditEmployee(){
   errEl.style.display='none';
   if(pw && pw.length<4){ errEl.textContent='비밀번호는 4자 이상이어야 합니다.'; errEl.style.display='block'; return; }
   try{
-    const upd={team, rank};
+    var upd={team:team, rank:rank};
     if(pw) upd.pw=pw;
     await dbUpdate('users/'+EMP_EDIT_KEY, upd);
     closeEmpEditModal();
@@ -3604,7 +3604,7 @@ async function exportExcel(){
             }
           }
 
-          tbmRows.push({t,team,assigned,sigs,dur,doneInfo});
+          tbmRows.push({t:t,team:team,assigned:assigned,sigs:sigs,dur:dur,doneInfo:doneInfo});
         }
       }));
 
@@ -3625,7 +3625,7 @@ async function exportExcel(){
       tbmRows.sort(function(a,b){ return a.t.date>b.t.date?1:-1; });
 
       tbmRows.forEach(function(r){
-        const {t,team,assigned,sigs,dur,doneInfo}=r;
+        var t=r.t; var team=r.team; var assigned=r.assigned; var sigs=r.sigs; var dur=r.dur; var doneInfo=r.doneInfo;
         const timeStr=(t.time||'')+(t.endTime?'~'+t.endTime:'');
         const fixed=[t.date,timeStr,team,t.loc||'',t.work||'',t.danger||'',t.safety||'',doneInfo];
 
@@ -3768,12 +3768,12 @@ async function exportExcel(){
 
 // ── 설정 저장 ──
 function aSaveCfg(){
-  CFG.company      = (document.getElementById('adm-cfg-company')?.value||'').trim();
-  CFG.supervisor   = (document.getElementById('adm-cfg-supervisor')?.value||'').trim();
-  CFG.supervisorPw = (document.getElementById('adm-cfg-suppw')?.value||'0000');
-  CFG.adminPw      = (document.getElementById('adm-cfg-adminpw')?.value||'1234');
-  CFG.viewerPw     = (document.getElementById('adm-cfg-viewerpw')?.value||'view1234');
-  CFG.regPw        = (document.getElementById('adm-cfg-regpw')?.value||'1234');
+  CFG.company      = ((document.getElementById('adm-cfg-company')||{}).value||'').trim();
+  CFG.supervisor   = ((document.getElementById('adm-cfg-supervisor')||{}).value||'').trim();
+  CFG.supervisorPw = ((document.getElementById('adm-cfg-suppw')||{}).value||'0000');
+  CFG.adminPw      = ((document.getElementById('adm-cfg-adminpw')||{}).value||'1234');
+  CFG.viewerPw     = ((document.getElementById('adm-cfg-viewerpw')||{}).value||'view1234');
+  CFG.regPw        = ((document.getElementById('adm-cfg-regpw')||{}).value||'1234');
   try{
     const toSave=JSON.parse(LS.getItem('tbm_cfg')||'{}');
     Object.assign(toSave,{company:CFG.company,supervisor:CFG.supervisor,supervisorPw:CFG.supervisorPw,adminPw:CFG.adminPw,viewerPw:CFG.viewerPw,regPw:CFG.regPw,teams:CFG.teams,ranks:CFG.ranks});
