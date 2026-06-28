@@ -2942,8 +2942,9 @@ async function submitOnsiteSig(){
 
   try{
     await dbSet('sigs/'+sigTeam+'/'+dbKey(date)+'/'+safeKey(ONSITE_SIGNER.name), record);
+    const signerName = ONSITE_SIGNER.name; // closeOnsiteSig 전에 미리 저장
     closeOnsiteSig();
-    alert2('서명 완료', ONSITE_SIGNER.name + '님의 현장 서명이 저장되었습니다.\n\n다음 미서명자에게 기기를 전달해주세요.');
+    alert2('서명 완료', signerName + '님의 현장 서명이 저장되었습니다.\n\n다음 미서명자에게 기기를 전달해주세요.');
     refreshStatus();
   }catch(e){
     alert2('오류','서명 저장 실패: '+e.message);
