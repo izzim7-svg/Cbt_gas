@@ -881,7 +881,10 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
       <div class="field"><label>관리감독자 이름</label><input type="text" id="adm-cfg-supervisor" placeholder="홍길동"></div>
       <div class="field"><label>관리감독자 로그인 비밀번호</label><input type="password" id="adm-cfg-suppw"></div>
       <div style="height:1px;background:var(--bd);margin:10px 0;"></div>
-      <div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:6px;">🔐 관리자 접속 비밀번호 (전체 권한)</div>
+      <div style="font-size:12px;font-weight:700;color:var(--pur);margin-bottom:6px;">📝 TBM 작성 허용 직책</div>
+      <div style="font-size:11px;color:var(--sub);margin-bottom:8px;">체크된 직책만 TBM 작성·관리 메뉴에 접근 가능합니다. 아무것도 체크 안 하면 전체 허용.</div>
+      <div id="adm-lead-ranks" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
+      <div style="height:1px;background:var(--bd);margin:10px 0;"></div>
       <div class="field"><input type="password" id="adm-cfg-adminpw" placeholder="관리자 비밀번호 변경"></div>
       <div style="font-size:12px;font-weight:700;color:var(--or);margin-bottom:6px;">👁️ 조회 전용 비밀번호 (읽기·엑셀만 가능)</div>
       <div class="field"><input type="password" id="adm-cfg-viewerpw" placeholder="조회 전용 비밀번호 변경"></div>
@@ -1134,7 +1137,8 @@ let CFG = {
   company:'', supervisor:'', supervisorPw:'0000',
   regPw:'1234', adminPw:'1234', viewerPw:'view1234',
   teams:['공급관리팀','안전관리팀','고객지원팀','기술팀','영업팀','경영관리팀','재무관리팀','임실지사','부안지사','진안지사'],
-  ranks:['사원','계장','대리','과장','차장','부장','본부장','이사']
+  ranks:['사원','계장','대리','과장','차장','부장','본부장','이사'],
+  leadRanks:[] // TBM 작성 허용 직책 목록 (빈 배열 = 전체 허용)
 };
 let CUR = null; // 현재 로그인 사용자 {name, team, rank, role}
 let TBM = null;
@@ -1233,6 +1237,7 @@ window.onload = function(){
       if(sc.regPw)        CFG.regPw        = sc.regPw;
       if(sc.adminPw)      CFG.adminPw      = sc.adminPw;
       if(sc.viewerPw)     CFG.viewerPw     = sc.viewerPw;
+      if(sc.leadRanks)    CFG.leadRanks    = sc.leadRanks;
     }
     // 항상 파일에 정의된 팀/직책으로 캐시 갱신
     const toSave = JSON.parse(LS.getItem('tbm_cfg')||'{}');
@@ -1352,69 +1357,83 @@ function closeNotifBanner(){
 
 // TBM 실시간 감지 리스너 (팀원용)
 function startTBMWatcher(){
-  if(!CUR) return;
+  if(!CUR||!CUR.team) return;
   if(!initDB()) return;
 
-  // 기존 리스너 해제
   if(tbmNotifListener) tbmNotifListener.off();
 
   const today = todayStr();
-  // 오늘 TBM 중 가장 최근 저장 기준으로 감지
   const path = 'tbm/' + CUR.team;
   tbmNotifListener = DB.ref(path);
   tbmNotifListener.on('value', function(snap){
     const allTbm = snap.val();
     if(!allTbm) return;
-    const todayEntries = Object.values(allTbm).filter(Boolean)
+
+    // Object.entries로 실제 Firebase 키 확보
+    const allEntries = Object.entries(allTbm).map(function(kv){
+      return Object.assign({},kv[1],{_fbKey:kv[0]});
+    }).filter(Boolean);
+    const todayEntries = allEntries
       .filter(function(t){ return t.date===today; })
       .sort(function(a,b){ return (b.savedAt||0)-(a.savedAt||0); });
     const data = todayEntries.length ? todayEntries[0] : null;
     if(!data) return;
-    const notifKey = CUR.team + '_' + tbmDbKey(data);
-    const tKey = tbmDbKey(data);
 
-    // 이미 알림 받은 TBM인지 확인 (중복 방지)
-    if(lastNotifKey === notifKey) return;
+    const tKey = data._fbKey;
+    const notifKey = CUR.team + '_' + tKey;
 
-    // 처음 로드 시엔 알림 안 보냄 (새로 등록된 것만)
+    // 처음 로드: 이미 배정+미서명이면 즉시 홈 배너 표시
     if(lastNotifKey === null){
       lastNotifKey = notifKey;
+      Promise.all([
+        dbGet('assignments/'+CUR.team+'/'+tKey),
+        dbGet('sigs/'+CUR.team+'/'+tKey+'/'+safeKey(CUR.name))
+      ]).then(function(res){
+        const aData=res[0], sigData=res[1];
+        if(sigData) return;
+        const assigned=aData?Object.values(aData).filter(Boolean):[];
+        if(!assigned.length) return;
+        if(!assigned.some(function(a){ return a.name===CUR.name; })) return;
+        showNotifBanner('✍️ 오늘의 TBM 서명이 필요합니다',
+          (data.work||'안전교육')+' | '+CUR.team+' · '+(data.lead||''));
+      }).catch(function(){});
       return;
     }
 
+    if(lastNotifKey === notifKey) return;
     lastNotifKey = notifKey;
 
-    // 이미 서명했는지 확인
-    dbGet('sigs/' + CUR.team + '/' + tKey + '/' + safeKey(CUR.name))
-      .then(function(sigData){
-        if(sigData) return;
-        dbGet('assignments/' + CUR.team + '/' + tKey)
-          .then(function(aData){
-            const assigned = aData ? Object.values(aData).filter(Boolean) : [];
-            if(assigned.length===0) return;
-            const isAssigned = assigned.some(function(a){ return a.name === CUR.name; });
-            if(!isAssigned) return;
-            const title = '🔔 오늘의 TBM이 등록되었습니다';
-            const body = (data.work||'작업 안전교육') + ' | ' + CUR.team + ' · ' + (data.lead||'');
-            sendBrowserNotif(title, body);
-            showNotifBanner(title, body);
-          });
+    // 새 TBM 등록 → 배정+미서명 확인 후 알림
+    dbGet('sigs/'+CUR.team+'/'+tKey+'/'+safeKey(CUR.name)).then(function(sigData){
+      if(sigData) return;
+      dbGet('assignments/'+CUR.team+'/'+tKey).then(function(aData){
+        const assigned=aData?Object.values(aData).filter(Boolean):[];
+        if(!assigned.length) return;
+        if(!assigned.some(function(a){ return a.name===CUR.name; })) return;
+        const title='🔔 오늘의 TBM이 등록되었습니다';
+        const body=(data.work||'작업 안전교육')+' | '+CUR.team+' · '+(data.lead||'');
+        sendBrowserNotif(title,body);
+        showNotifBanner(title,body);
       });
+    });
   });
 }
 
 // 앱 포그라운드 복귀 시 미서명 체크
 function checkUnreadTBM(){
-  if(!CUR) return;
+  if(!CUR||!CUR.team) return;
   const today = todayStr();
   dbGet('tbm/' + CUR.team).then(function(allTbm){
     if(!allTbm) return;
-    const todayEntries = Object.values(allTbm).filter(Boolean)
+    const allEntries = Object.entries(allTbm).map(function(kv){
+      return Object.assign({},kv[1],{_fbKey:kv[0]});
+    }).filter(Boolean);
+    const todayEntries = allEntries
       .filter(function(t){ return t.date===today; })
       .sort(function(a,b){ return (b.savedAt||0)-(a.savedAt||0); });
     if(!todayEntries.length) return;
     const tbmData = todayEntries[0];
-    const tKey = tbmDbKey(tbmData);
+    const tKey = tbmData._fbKey; // 실제 Firebase 키
     Promise.all([
       dbGet('sigs/' + CUR.team + '/' + tKey + '/' + safeKey(CUR.name)),
       dbGet('assignments/' + CUR.team + '/' + tKey)
@@ -1657,15 +1676,25 @@ function buildHomeMenus(){
       + '</div>';
 
   } else {
-    // 일반 직원 — 모두 TBM 작성 + 서명 가능
+    // 일반 직원 — 권한에 따라 TBM 작성 카드 표시 여부 결정
     el.innerHTML = '<div style="padding:12px 12px 4px;">'
-      + menuTBMCard() + menuSignCard()
+      + (isLeadAllowed() ? menuTBMCard() : '')
+      + menuSignCard()
+      + (!isLeadAllowed() ? '<div style="background:var(--gyb);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--sub);margin-bottom:8px;">📋 TBM 작성 권한이 없습니다. 관리자에게 문의하세요.</div>' : '')
       + '</div>'
       + '<div style="padding:0 12px 8px;display:flex;gap:8px;">'
       + '<button class="btn btn-ol btn-sm" onclick="openPwModal()" style="flex:1;">🔑 비밀번호 변경</button>'
       + '<button class="btn btn-gy btn-sm" onclick="logout()" style="flex:1;">로그아웃 ('+CUR.name+')</button>'
       + '</div>';
   }
+}
+
+// TBM 작성 권한 확인 (leadRanks 비어있으면 전체 허용)
+function isLeadAllowed(){
+  if(!CUR) return false;
+  if(CUR.role==='supervisor') return false; // 관리감독자는 팀이 없어 작성 불가
+  if(!CFG.leadRanks||CFG.leadRanks.length===0) return true; // 미설정 시 전체 허용
+  return CFG.leadRanks.indexOf(CUR.rank)!==-1;
 }
 
 // 공통 메뉴 카드
@@ -1708,6 +1737,11 @@ function saveCfg(){
 // 팀장 화면
 // ══════════════════════════════════════════════════════════
 function goLead(){
+  if(!CUR){ go('signin'); return; }
+  if(!isLeadAllowed()){
+    alert2('접근 불가','TBM 작성 권한이 없습니다.\n관리자에게 문의하세요.');
+    return;
+  }
   LEAD_TEAM = CUR.team || CFG.teams[0];
   document.getElementById('lead-badge').textContent = LEAD_TEAM;
   // 교육담당자/관리감독자 자동 입력
@@ -2302,17 +2336,21 @@ async function loadMemberTBM(team){
     const tbmList=await dbGet('tbm/'+team);
     let tbmData=null, tbmKey=null;
     if(tbmList){
-      const todayEntries=Object.values(tbmList).filter(Boolean)
+      // Firebase에서 읽을 때 실제 키(fbKey)도 함께 저장
+      const allEntries = Object.entries(tbmList).map(function(kv){
+        return Object.assign({},kv[1],{_fbKey:kv[0]});
+      }).filter(Boolean);
+      const todayEntries = allEntries
         .filter(function(t){ return t.date===today; })
         .sort(function(a,b){ return (b.savedAt||0)-(a.savedAt||0); });
       if(todayEntries.length>0){
         tbmData=todayEntries[0];
-        tbmKey=tbmDbKey(tbmData);
+        tbmKey=tbmData._fbKey; // Firebase 실제 키 사용
       }
     }
     if(!tbmData){ document.getElementById('ms-none').style.display='block';
       document.getElementById('ms-main').style.display='none'; return; }
-    TBM=tbmData;
+    TBM=tbmData; // _fbKey 포함된 상태로 저장
 
     // 배정 확인
     const aData=await dbGet('assignments/'+team+'/'+tbmKey);
@@ -3163,6 +3201,16 @@ function aTab(n){
     document.getElementById('adm-cfg-adminpw').value    = CFG.adminPw||'1234';
     document.getElementById('adm-cfg-viewerpw').value   = CFG.viewerPw||'view1234';
     document.getElementById('adm-cfg-regpw').value      = CFG.regPw||'1234';
+    // TBM 작성 허용 직책 체크박스 렌더
+    const rankBox = document.getElementById('adm-lead-ranks');
+    if(rankBox){
+      rankBox.innerHTML = CFG.ranks.map(function(r){
+        const chk = CFG.leadRanks.indexOf(r)!==-1 ? 'checked' : '';
+        return '<label style="display:flex;align-items:center;gap:5px;background:var(--gyb);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;">'
+          +'<input type="checkbox" name="lead-rank" value="'+r+'" '+chk+' style="accent-color:var(--pur);width:16px;height:16px;">'
+          +r+'</label>';
+      }).join('');
+    }
   }
   if(n===5){
     // 교육시간 탭 초기화
@@ -4203,12 +4251,18 @@ function aSaveCfg(){
   CFG.adminPw      = (document.getElementById('adm-cfg-adminpw')?.value||'1234');
   CFG.viewerPw     = (document.getElementById('adm-cfg-viewerpw')?.value||'view1234');
   CFG.regPw        = (document.getElementById('adm-cfg-regpw')?.value||'1234');
+  // TBM 작성 허용 직책 수집
+  const leadRankBoxes = document.querySelectorAll('input[name="lead-rank"]:checked');
+  CFG.leadRanks = Array.from(leadRankBoxes).map(function(el){ return el.value; });
   try{
     const toSave=JSON.parse(LS.getItem('tbm_cfg')||'{}');
-    Object.assign(toSave,{company:CFG.company,supervisor:CFG.supervisor,supervisorPw:CFG.supervisorPw,adminPw:CFG.adminPw,viewerPw:CFG.viewerPw,regPw:CFG.regPw,teams:CFG.teams,ranks:CFG.ranks});
+    Object.assign(toSave,{company:CFG.company,supervisor:CFG.supervisor,supervisorPw:CFG.supervisorPw,
+      adminPw:CFG.adminPw,viewerPw:CFG.viewerPw,regPw:CFG.regPw,
+      teams:CFG.teams,ranks:CFG.ranks,leadRanks:CFG.leadRanks});
     LS.setItem('tbm_cfg',JSON.stringify(toSave));
   }catch(e){}
-  alert2('저장 완료','설정이 저장되었습니다.');
+  alert2('저장 완료',
+    'TBM 작성 허용 직책: '+(CFG.leadRanks.length?CFG.leadRanks.join(', '):'전체 허용')+'\n\n설정이 저장되었습니다.');
 }
 
 // ── 관리감독자 신규 등록 ──
