@@ -705,7 +705,10 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
     <div class="card" id="apdf2-detail-card" style="display:none;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div class="card-title" style="margin:0;" id="apdf2-detail-title">선택된 TBM</div>
-        <button class="btn btn-rd btn-sm" onclick="aGenPDF()" style="width:auto;min-width:100px;">🖨️ PDF 출력</button>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-rd btn-sm" onclick="openTbmDeleteModal('pdf')" style="width:auto;background:var(--rdb);color:var(--rd);border:1.5px solid var(--rd);">🗑️ 삭제</button>
+          <button class="btn btn-rd btn-sm" onclick="aGenPDF()" style="width:auto;min-width:80px;">🖨️ PDF</button>
+        </div>
       </div>
       <div id="apdf2-detail-content"></div>
       <div id="apdf2-sig-list" style="margin-top:12px;"></div>
@@ -760,6 +763,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
         <div class="card-title" style="margin:0;" id="adm-hist-detail-title">이력 상세</div>
         <div style="display:flex;gap:6px;">
           <button class="btn btn-ol btn-sm" onclick="openAdmTimeEdit()" style="width:auto;">⏰ 시간수정</button>
+          <button class="btn btn-rd btn-sm" onclick="openTbmDeleteModal('hist')" style="width:auto;background:var(--rdb);color:var(--rd);border:1.5px solid var(--rd);">🗑️ 삭제</button>
           <button class="btn btn-rd btn-sm" onclick="aGenPDFFromHistory()" style="width:auto;">🖨️ PDF</button>
         </div>
       </div>
@@ -958,6 +962,21 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
         ⚠️ <strong>현장 서명</strong>은 TBM 진행자 기기에서 해당 팀원 본인이 직접 서명하는 방식입니다.<br>서명 후 기기를 다음 서명자에게 전달해주세요.
       </div>
       <button class="btn btn-gr" onclick="submitOnsiteSig()" style="font-size:16px;">✅ 서명 제출 완료</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TBM 회의일지 삭제 확인 모달 ══ -->
+<div class="pw-modal-bg" id="tbm-delete-modal">
+  <div class="pw-modal" style="max-width:340px;">
+    <h3>🗑️ 회의일지 삭제</h3>
+    <div class="pw-sub" id="tbm-delete-sub">이 TBM을 삭제하시겠습니까?</div>
+    <div style="background:var(--rdb);border-radius:8px;padding:10px;font-size:13px;color:var(--rd);margin-bottom:14px;line-height:1.7;">
+      ⚠️ 삭제하면 <strong>TBM 내용 · 참여자 · 서명 데이터</strong>가<br>모두 완전히 삭제되며 복구할 수 없습니다.
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-gy" onclick="closeTbmDeleteModal()" style="flex:1;">취소</button>
+      <button class="btn btn-rd" onclick="confirmDeleteTbm()" style="flex:1;">🗑️ 삭제</button>
     </div>
   </div>
 </div>
@@ -3847,6 +3866,10 @@ function applyViewerMode(){
   document.querySelectorAll('#adc3 .btn-ol, #adc3 .btn-rd').forEach(function(btn){
     btn.style.display=ADM_VIEWER_MODE?'none':'';
   });
+  // 회의일지 탭: 삭제 버튼 숨김
+  document.querySelectorAll('#adc1 .btn-rd').forEach(function(btn){
+    if(btn.textContent.indexOf('삭제')>-1) btn.style.display=ADM_VIEWER_MODE?'none':'';
+  });
 }
 
 // [patchAdminLogin 제거 - doAdminLogin에 통합됨]
@@ -4149,8 +4172,64 @@ async function aRegSupervisor(){
 }
 
 // ══════════════════════════════════════════════════════════
-// 비밀번호 변경 (본인)
+// TBM 회의일지 삭제
 // ══════════════════════════════════════════════════════════
+let TBM_DELETE_SOURCE = ''; // 'pdf' | 'hist'
+
+function openTbmDeleteModal(source){
+  if(ADM_VIEWER_MODE){ alert2('접근 불가','조회 전용 모드에서는 삭제가 불가합니다.'); return; }
+  const tbm  = source==='pdf' ? ADM_PDF_TBM2   : ADM_HIST_TBM;
+  const team = source==='pdf' ? ADM_PDF_TEAM2  : ADM_HIST_TEAM;
+  if(!tbm||!tbm.date){ alert2('선택 필요','먼저 목록에서 TBM을 선택해주세요.'); return; }
+  TBM_DELETE_SOURCE = source;
+  document.getElementById('tbm-delete-sub').textContent =
+    '['+team+'] '+tbm.date+(tbm.time?' '+tbm.time:'')
+    +' — '+( tbm.work||'').slice(0,20)+' TBM을 삭제하시겠습니까?';
+  document.getElementById('tbm-delete-modal').classList.add('open');
+}
+
+function closeTbmDeleteModal(){
+  document.getElementById('tbm-delete-modal').classList.remove('open');
+}
+
+async function confirmDeleteTbm(){
+  const source = TBM_DELETE_SOURCE;
+  const tbm    = source==='pdf' ? ADM_PDF_TBM2  : ADM_HIST_TBM;
+  const team   = source==='pdf' ? ADM_PDF_TEAM2 : ADM_HIST_TEAM;
+  if(!tbm||!team){ closeTbmDeleteModal(); return; }
+
+  const key = tbmDbKey(tbm);
+
+  try{
+    // tbm / assignments / sigs / meetings 모두 삭제
+    await Promise.all([
+      DB.ref('tbm/'+team+'/'+key).remove(),
+      DB.ref('assignments/'+team+'/'+key).remove(),
+      DB.ref('sigs/'+team+'/'+key).remove(),
+      DB.ref('meetings/'+team+'/'+key).remove(),
+    ]);
+
+    closeTbmDeleteModal();
+
+    // 상세 카드 숨기기
+    if(source==='pdf'){
+      ADM_PDF_TBM2=null; ADM_PDF_SIGS2=[]; ADM_PDF_ASSIGNED2=[];
+      document.getElementById('apdf2-detail-card').style.display='none';
+      aLoadPdfList(); // 목록 새로고침
+    } else {
+      ADM_HIST_TBM=null; ADM_HIST_SIGS=[]; ADM_HIST_ASSIGNED=[];
+      document.getElementById('adm-hist-detail-card').style.display='none';
+      aLoadHistory(); // 목록 새로고침
+    }
+
+    alert2('삭제 완료','TBM 회의일지가 삭제되었습니다.');
+  }catch(e){
+    closeTbmDeleteModal();
+    alert2('삭제 실패', e.message);
+  }
+}
+
+
 let PW_TARGET_KEY = null; // null = 본인, string = 관리자가 타인 초기화
 let PW_IS_ADMIN_RESET = false;
 
@@ -4359,6 +4438,7 @@ document.addEventListener('click', function(e){
   if(e.target.id==='emp-edit-modal') closeEmpEditModal();
   if(e.target.id==='adm-time-edit-modal') closeAdmTimeEdit();
   if(e.target.id==='onsite-sig-modal') closeOnsiteSig();
+  if(e.target.id==='tbm-delete-modal') closeTbmDeleteModal();
 });
 </script>
 </body>
