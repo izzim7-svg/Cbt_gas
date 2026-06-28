@@ -2694,17 +2694,30 @@ async function genPDF(){
 
   const tbm=TBM||{};
 
-  // 종료 시간: 직접 입력 값 우선, 없으면 마지막 서명 savedAt 사용
+  // 종료 시간 계산
+  // ① endTime 직접 입력: 그대로 사용
+  // ② 미입력: 시작시간 + 최대 15분 (마지막 서명 기준이어도 15분 상한)
   let endTimeStr = tbm.endTime||'';
-  if(!endTimeStr && SIGS.length){
-    const validTs = SIGS.filter(function(s){ return s.savedAt; }).map(function(s){ return Number(s.savedAt); });
-    if(validTs.length){
-      const lastTs = Math.max.apply(null, validTs);
-      if(isFinite(lastTs)){
-        const d = new Date(lastTs);
-        endTimeStr = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  if(!endTimeStr && tbm.time){
+    // 시작시간 파싱
+    const [sh, sm] = tbm.time.split(':').map(Number);
+    const startMin = sh * 60 + sm;
+
+    // 마지막 서명 savedAt으로 실제 경과 계산
+    let diffMin = 15; // 기본 15분
+    if(SIGS.length){
+      const validTs = SIGS.filter(function(s){ return s.savedAt; }).map(function(s){ return Number(s.savedAt); });
+      if(validTs.length){
+        const lastTs = Math.max.apply(null, validTs);
+        if(isFinite(lastTs)){
+          const startTs = new Date(tbm.date + 'T' + tbm.time + ':00').getTime();
+          const d = Math.round((lastTs - startTs) / 60000);
+          diffMin = Math.max(10, Math.min(d, 15)); // 최소 10분, 최대 15분
+        }
       }
     }
+    const endMin = startMin + diffMin;
+    endTimeStr = String(Math.floor(endMin/60)%24).padStart(2,'0') + ':' + String(endMin%60).padStart(2,'0');
   }
 
   // 서명시각 컬럼 제거 — 이름/팀/직책/서명 4컬럼만
