@@ -292,7 +292,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
       <div class="field">
         <label>종료 시간 <span class="chip chip-or" style="font-size:10px;">선택입력</span></label>
         <input type="time" id="t-endtime" placeholder="--:--">
-        <div style="font-size:11px;color:var(--sub);margin-top:4px;">※ 미입력 시 마지막 서명 시각을 종료 기준으로 자동 적용 (최소 10분)</div>
+        <div style="font-size:11px;color:var(--sub);margin-top:4px;">※ 미입력 시 마지막 서명 시각 기준 자동 적용 (최소 10분 / 최대 15분)</div>
       </div>
       <div class="field"><label>작업 장소</label><input type="text" id="t-loc" placeholder="예) 2공장 3층 배관구역"></div>
       <div class="field"><label>작업 내용</label><input type="text" id="t-work" placeholder="예) 배관 교체 작업"></div>
@@ -782,7 +782,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
         <button type="button" onclick="setEduPeriod('year')"   id="ep-year"   class="ep-btn" style="padding:6px 12px;border:1.5px solid var(--bd);border-radius:20px;background:#fff;color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;">올해</button>
         <button type="button" onclick="setEduPeriod('custom')" id="ep-custom" class="ep-btn" style="padding:6px 12px;border:1.5px solid var(--bd);border-radius:20px;background:#fff;color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;">직접 입력</button>
       </div>
-      <div id="edu-custom-range" style="display:none;display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
+      <div id="edu-custom-range" style="display:none;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center;">
         <input type="date" id="edu-from" style="flex:1;min-width:130px;padding:8px;border:1.5px solid var(--bd);border-radius:8px;font-size:14px;">
         <span style="color:var(--sub);font-size:13px;">~</span>
         <input type="date" id="edu-to"   style="flex:1;min-width:130px;padding:8px;border:1.5px solid var(--bd);border-radius:8px;font-size:14px;">
@@ -825,7 +825,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
         <button type="button" onclick="setXlPeriod('all')"    id="xlp-all"    class="xlp-btn" style="padding:6px 12px;border:1.5px solid var(--bd);border-radius:20px;background:#fff;color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;">전체</button>
         <button type="button" onclick="setXlPeriod('custom')" id="xlp-custom" class="xlp-btn" style="padding:6px 12px;border:1.5px solid var(--bd);border-radius:20px;background:#fff;color:var(--sub);font-size:12px;font-weight:600;cursor:pointer;">직접 입력</button>
       </div>
-      <div id="xl-custom-range" style="display:none;display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">
+      <div id="xl-custom-range" style="display:none;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center;">
         <input type="date" id="xl-from" style="flex:1;min-width:130px;padding:8px;border:1.5px solid var(--bd);border-radius:8px;font-size:14px;">
         <span style="color:var(--sub);font-size:13px;">~</span>
         <input type="date" id="xl-to"   style="flex:1;min-width:130px;padding:8px;border:1.5px solid var(--bd);border-radius:8px;font-size:14px;">
@@ -1046,7 +1046,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
     </div>
     <div class="pw-sub" id="adm-time-edit-sub">시작/종료 시간을 수정합니다.</div>
     <div style="background:var(--prl);border-radius:8px;padding:10px;font-size:12px;color:var(--pr);margin-bottom:12px;line-height:1.6;">
-      ⏱ 교육시간 = 종료시간 - 시작시간 (최소 10분 적용)<br>
+      ⏱ 교육시간 = 종료시간 - 시작시간 (직접입력: 실제값 / 마지막서명: 최소 10분·최대 15분)<br>
       종료시간 미입력 시 마지막 서명 시각 자동 적용
     </div>
     <div class="row2">
@@ -2300,6 +2300,7 @@ function renderTBMHtml(t){
 // ══════════════════════════════════════════════════════════
 // 서명 캔버스
 // ══════════════════════════════════════════════════════════
+let sigResizeAttached = false;
 function initCanvas(){
   const cv=document.getElementById('sigCanvas');
   if(!cv) return;
@@ -2318,7 +2319,10 @@ function initCanvas(){
     sigCtx.fillRect(0,0,w,180);
   }
   resize();
-  window.addEventListener('resize',resize);
+  if(!sigResizeAttached){
+    sigResizeAttached=true;
+    window.addEventListener('resize',resize);
+  }
   function pos(e){ const r=cv.getBoundingClientRect(); const s=e.touches?e.touches[0]:e; return{x:s.clientX-r.left,y:s.clientY-r.top}; }
   cv.addEventListener('mousedown',function(e){ sigDrawing=true; const p=pos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x,p.y); hideGuide(); });
   cv.addEventListener('mousemove',function(e){ if(!sigDrawing)return; const p=pos(e); sigCtx.lineTo(p.x,p.y); sigCtx.stroke(); updatePreview(); });
@@ -2642,13 +2646,28 @@ async function genPDF(){
   }catch(e){}
 
   const tbm=TBM||{};
+
+  // 종료 시간: 직접 입력 값 우선, 없으면 마지막 서명 savedAt 사용
+  let endTimeStr = tbm.endTime||'';
+  if(!endTimeStr && SIGS.length){
+    const validTs = SIGS.filter(function(s){ return s.savedAt; }).map(function(s){ return Number(s.savedAt); });
+    if(validTs.length){
+      const lastTs = Math.max.apply(null, validTs);
+      if(isFinite(lastTs)){
+        const d = new Date(lastTs);
+        endTimeStr = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+      }
+    }
+  }
+
+  // 서명시각 컬럼 제거 — 이름/팀/직책/서명 4컬럼만
   const sigRows=ASSIGNED.map(function(row){
     const sig=SIGS.find(function(s){ return s.name===row.name; });
     const sigCell=sig&&sig.sigImg
-      ?'<img src="'+sig.sigImg+'" style="height:42px;max-width:130px;object-fit:contain;vertical-align:middle;" alt="서명">'
+      ?'<img src="'+sig.sigImg+'" style="height:42px;max-width:150px;object-fit:contain;vertical-align:middle;" alt="서명">'
       :'<span style="color:#ccc;font-size:11px;">미서명</span>';
     return '<tr><td style="'+(sig?'':'color:#bbb;')+'">'+row.name+'</td><td>'+team+'</td>'
-      +'<td>'+(row.rank||'-')+'</td><td style="text-align:center;">'+(sig?sig.time||'-':'-')+'</td>'
+      +'<td>'+(row.rank||'-')+'</td>'
       +'<td style="text-align:center;padding:3px 6px;">'+sigCell+'</td></tr>';
   }).join('');
 
@@ -2670,7 +2689,6 @@ async function genPDF(){
     +'.sigt th{background:#1e40af;color:#fff;padding:6px 8px;text-align:left;font-weight:700;border:1px solid #1e3a8a;}'
     +'.sigt td{padding:4px 7px;border:1px solid #e2e8f0;vertical-align:middle;height:50px;}'
     +'.sigt tr:nth-child(even) td{background:#f8fafc;}'
-    +'.footer{padding-top:8px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:9px;color:#aaa;}'
     +'@media print{body{padding:8mm 12mm;}@page{size:A4;margin:8mm 10mm;}}'
     +'</style></head><body>'
     +'<h1>TBM 안전교육 회의일지</h1>'
@@ -2678,7 +2696,8 @@ async function genPDF(){
     +'<div class="law">(산업안전보건법 제29조 / 관리감독자 안전보건교육 이행 기록)</div>'
     +'<div class="sec blue">기본 정보</div>'
     +'<table class="info">'
-    +'<tr><th>날짜/시간</th><td>'+date+' '+(tbm.time||'')+'</td><th>팀</th><td>'+team+'</td></tr>'
+    +'<tr><th>날짜</th><td>'+date+'</td><th>팀</th><td>'+team+'</td></tr>'
+    +'<tr><th>회의 시작</th><td>'+(tbm.time||'-')+'</td><th>회의 종료</th><td>'+(endTimeStr||'-')+'</td></tr>'
     +'<tr><th>작업 장소</th><td colspan="3">'+(tbm.loc||'-')+'</td></tr>'
     +'<tr><th>작업 내용</th><td colspan="3">'+(tbm.work||'-')+'</td></tr>'
     +'<tr class="sup-row"><th>관리감독자</th><td colspan="3">'+(tbm.supervisor||CFG.supervisor||'-')+'</td></tr>'
@@ -2690,9 +2709,8 @@ async function genPDF(){
     +(tbm.ppe?'<div class="sec blue">보호구</div><div class="box">'+tbm.ppe.replace(/</g,'&lt;')+'</div>':'')
     +(tbm.note?'<div class="sec blue">특이사항</div><div class="box">'+tbm.note.replace(/</g,'&lt;')+'</div>':'')
     +'<div class="sec blue">참석자 서명 ('+ASSIGNED.filter(function(m){ return SIGS.find(function(s){ return s.name===m.name; }); }).length+'명 완료 / 전체 '+ASSIGNED.length+'명)</div>'
-    +'<table class="sigt"><thead><tr><th>이름</th><th>팀</th><th>직책</th><th>서명시각</th><th style="width:150px;">서명</th></tr></thead>'
-    +'<tbody>'+(sigRows||'<tr><td colspan="5" style="text-align:center;color:#999;padding:12px;">서명 없음</td></tr>')+'</tbody></table>'
-    +'<div class="footer"><span>생성: '+new Date().toLocaleString('ko-KR')+'</span><span>TBM 안전교육 회의일지</span><span>1/1</span></div>'
+    +'<table class="sigt"><thead><tr><th>이름</th><th>팀</th><th>직책</th><th style="width:180px;">서명</th></tr></thead>'
+    +'<tbody>'+(sigRows||'<tr><td colspan="4" style="text-align:center;color:#999;padding:12px;">서명 없음</td></tr>')+'</tbody></table>'
     +'</body></html>';
 
   const isIOS=/ipad|iphone|ipod/i.test(navigator.userAgent);
@@ -2764,69 +2782,108 @@ function openOnsiteSig(name, rank, team){
   document.getElementById('onsite-sig-modal').classList.add('open');
   document.getElementById('onsite-sig-modal').scrollTop = 0;
 
-  // 캔버스 초기화 (모달 열린 후 크기 확정)
-  setTimeout(function(){ initOnsiteCanvas(); }, 80);
+  // 캔버스 플래그 초기화 — 모달 열릴 때마다 크기를 새로 잡아야 함
+  // (인앱브라우저는 display:flex → 렌더 완료까지 약간 지연 필요)
+  onsiteCtx = null;
+  onsiteCanvasReady = false;
+  onsiteDrawing = false;
+  setTimeout(function(){
+    initOnsiteCanvas();
+  }, 150); // 80ms → 150ms: 카카오 인앱브라우저 레이아웃 확정 대기
 }
 
 function closeOnsiteSig(){
   document.getElementById('onsite-sig-modal').classList.remove('open');
   ONSITE_SIGNER = null;
+  onsiteCanvasReady = false;
+  onsiteCtx = null;
+  onsiteDrawing = false;
 }
 
+// 이벤트 리스너 중복 방지용 플래그
+let onsiteCanvasReady = false;
+
 function initOnsiteCanvas(){
-  const cv = document.getElementById('onsiteCanvas');
-  if(!cv) return;
-  const w = cv.offsetWidth || 320;
-  const dpr = window.devicePixelRatio || 1;
-  cv.width  = w * dpr;
-  cv.height = 180 * dpr;
-  cv.style.height = '180px';
-  onsiteCtx = cv.getContext('2d');
+  const c = document.getElementById('onsiteCanvas');
+  if(!c) return;
+
+  // offsetWidth가 0이면 부모 너비를 직접 계산 (인앱브라우저 대응)
+  let w = c.offsetWidth;
+  if(!w){
+    const wrap = document.getElementById('onsite-sig-wrap');
+    w = (wrap ? wrap.offsetWidth : 0) - 4; // border 2px * 2
+  }
+  if(!w || w < 10) w = 320;
+
+  const CANVAS_H = 200; // 논리적 높이(px)
+  const dpr = Math.min(window.devicePixelRatio || 1, 3); // 과도한 dpr 방지
+
+  // 캔버스 물리 크기 설정
+  c.width  = Math.round(w * dpr);
+  c.height = Math.round(CANVAS_H * dpr);
+  c.style.width  = w + 'px';
+  c.style.height = CANVAS_H + 'px';
+
+  onsiteCtx = c.getContext('2d');
+  onsiteCtx.setTransform(1,0,0,1,0,0); // 이전 scale 완전 초기화
   onsiteCtx.scale(dpr, dpr);
   onsiteCtx.strokeStyle = '#1a1a2e';
   onsiteCtx.lineWidth   = 2.8;
   onsiteCtx.lineCap     = 'round';
   onsiteCtx.lineJoin    = 'round';
   onsiteCtx.fillStyle   = '#ffffff';
-  onsiteCtx.fillRect(0, 0, w, 180);
+  onsiteCtx.fillRect(0, 0, w, CANVAS_H);
 
-  // 가이드 텍스트 표시
+  // 가이드 텍스트
   const g = document.querySelector('#onsite-sig-wrap .sig-guide-txt');
   if(g) g.style.display = 'block';
 
-  function pos(e){
-    const r = cv.getBoundingClientRect();
+  // 이벤트는 최초 1회만 등록 (중복 방지)
+  if(onsiteCanvasReady) return;
+  onsiteCanvasReady = true;
+
+  function getPos(e){
+    const r = document.getElementById('onsiteCanvas').getBoundingClientRect();
     const s = e.touches ? e.touches[0] : e;
     return { x: s.clientX - r.left, y: s.clientY - r.top };
   }
-  function hideGuide(){ const g2=document.querySelector('#onsite-sig-wrap .sig-guide-txt'); if(g2) g2.style.display='none'; }
+  function hideGuide(){
+    const g2 = document.querySelector('#onsite-sig-wrap .sig-guide-txt');
+    if(g2) g2.style.display = 'none';
+  }
 
-  // 이벤트 — 기존 리스너 누적 방지를 위해 복제 교체
-  const cv2 = cv.cloneNode(true);
-  cv.parentNode.replaceChild(cv2, cv);
-  onsiteCtx = null;
+  c.addEventListener('mousedown', function(e){
+    if(!onsiteCtx) return;
+    onsiteDrawing = true;
+    const p = getPos(e);
+    onsiteCtx.beginPath(); onsiteCtx.moveTo(p.x, p.y);
+    hideGuide();
+  });
+  c.addEventListener('mousemove', function(e){
+    if(!onsiteDrawing || !onsiteCtx) return;
+    const p = getPos(e);
+    onsiteCtx.lineTo(p.x, p.y); onsiteCtx.stroke();
+    updateOnsitePreview();
+  });
+  c.addEventListener('mouseup',    function(){ onsiteDrawing = false; });
+  c.addEventListener('mouseleave', function(){ onsiteDrawing = false; });
 
-  const c = document.getElementById('onsiteCanvas');
-  const w2 = c.offsetWidth || 320;
-  c.width  = w2 * dpr;
-  c.height = 180 * dpr;
-  c.style.height = '180px';
-  onsiteCtx = c.getContext('2d');
-  onsiteCtx.scale(dpr, dpr);
-  onsiteCtx.strokeStyle = '#1a1a2e';
-  onsiteCtx.lineWidth   = 2.8;
-  onsiteCtx.lineCap     = 'round';
-  onsiteCtx.lineJoin    = 'round';
-  onsiteCtx.fillStyle   = '#ffffff';
-  onsiteCtx.fillRect(0, 0, w2, 180);
-
-  c.addEventListener('mousedown', function(e){ onsiteDrawing=true; const p=pos(e); onsiteCtx.beginPath(); onsiteCtx.moveTo(p.x,p.y); hideGuide(); });
-  c.addEventListener('mousemove', function(e){ if(!onsiteDrawing)return; const p=pos(e); onsiteCtx.lineTo(p.x,p.y); onsiteCtx.stroke(); updateOnsitePreview(); });
-  c.addEventListener('mouseup',   function(){ onsiteDrawing=false; updateOnsitePreview(); });
-  c.addEventListener('mouseleave',function(){ onsiteDrawing=false; });
-  c.addEventListener('touchstart',function(e){ e.preventDefault(); onsiteDrawing=true; const p=pos(e); onsiteCtx.beginPath(); onsiteCtx.moveTo(p.x,p.y); hideGuide(); },{passive:false});
-  c.addEventListener('touchmove', function(e){ e.preventDefault(); if(!onsiteDrawing)return; const p=pos(e); onsiteCtx.lineTo(p.x,p.y); onsiteCtx.stroke(); updateOnsitePreview(); },{passive:false});
-  c.addEventListener('touchend',  function(){ onsiteDrawing=false; updateOnsitePreview(); });
+  c.addEventListener('touchstart', function(e){
+    e.preventDefault();
+    if(!onsiteCtx) return;
+    onsiteDrawing = true;
+    const p = getPos(e);
+    onsiteCtx.beginPath(); onsiteCtx.moveTo(p.x, p.y);
+    hideGuide();
+  }, { passive: false });
+  c.addEventListener('touchmove', function(e){
+    e.preventDefault();
+    if(!onsiteDrawing || !onsiteCtx) return;
+    const p = getPos(e);
+    onsiteCtx.lineTo(p.x, p.y); onsiteCtx.stroke();
+    updateOnsitePreview();
+  }, { passive: false });
+  c.addEventListener('touchend', function(){ onsiteDrawing = false; });
 }
 
 function updateOnsitePreview(){
@@ -2839,8 +2896,11 @@ function updateOnsitePreview(){
 function clearOnsiteSig(){
   const c = document.getElementById('onsiteCanvas');
   if(!c || !onsiteCtx) return;
+  // 논리 크기(style)로 fillRect — dpr scale이 이미 적용된 ctx 기준
+  const w = parseInt(c.style.width) || c.offsetWidth || 320;
+  const h = parseInt(c.style.height) || 200;
   onsiteCtx.fillStyle = '#ffffff';
-  onsiteCtx.fillRect(0, 0, c.offsetWidth||320, 180);
+  onsiteCtx.fillRect(0, 0, w, h);
   document.getElementById('onsite-sig-preview-card').style.display = 'none';
   const g = document.querySelector('#onsite-sig-wrap .sig-guide-txt');
   if(g) g.style.display = 'block';
@@ -2877,14 +2937,13 @@ async function submitOnsiteSig(){
     loc:  TBM&&TBM.loc||'',
     supervisor: TBM&&TBM.supervisor||CFG.supervisor||'',
     savedAt: Date.now(),
-    onsiteSigned: true // 현장서명 표시
+    onsiteSigned: true
   };
 
   try{
     await dbSet('sigs/'+sigTeam+'/'+dbKey(date)+'/'+safeKey(ONSITE_SIGNER.name), record);
     closeOnsiteSig();
     alert2('서명 완료', ONSITE_SIGNER.name + '님의 현장 서명이 저장되었습니다.\n\n다음 미서명자에게 기기를 전달해주세요.');
-    // 현황 자동 갱신 (리스너가 실시간으로 처리하지만 즉시 반영)
     refreshStatus();
   }catch(e){
     alert2('오류','서명 저장 실패: '+e.message);
@@ -3345,7 +3404,7 @@ async function aGenPDFFromHistory(){
 // 교육시간 분석
 // 시작: tbm.time (회의 시작 시각, HH:MM)
 // 종료: 마지막 서명의 savedAt (timestamp ms)
-// 교육시간 = 종료 - 시작, 최소 10분 보장
+// 교육시간 = 종료 - 시작, 최소 15분 보장
 // ══════════════════════════════════════════════════════════
 let EDU_FROM='', EDU_TO='', EDU_PERIOD='month';
 
@@ -3433,14 +3492,14 @@ async function aLoadEduTime(){
     /* ── 2. TBM별 교육시간 계산 ──
        우선순위 1: tbm.time ~ tbm.endTime (둘 다 입력된 경우)
        우선순위 2: tbm.time ~ 마지막 sig.savedAt
-       최소 10분 보장, 최대 240분                              */
+       마지막 서명 기준: 최소 10분, 최대 15분 / endTime 직접입력: 실제값 그대로 */
     sessions.forEach(function(s){
       var tbm=s.tbm, sigs=s.sigs;
       var startDate=hmToDate(tbm.date, tbm.time);
 
-      var durationMin=10; // 기본
+      var durationMin=10; // 기본 최소
 
-      // ① endTime 직접 입력된 경우 (가장 정확)
+      // ① endTime 직접 입력된 경우 — 실제값 그대로 적용
       if(tbm.time && tbm.endTime){
         var endDate=hmToDate(tbm.date, tbm.endTime);
         if(endDate && startDate){
@@ -3448,14 +3507,14 @@ async function aLoadEduTime(){
           if(diffMin>0) durationMin=Math.max(10,Math.min(diffMin,240));
         }
       }
-      // ② endTime 없으면 마지막 sig.savedAt 사용
+      // ② endTime 없으면 마지막 sig.savedAt 사용 — 최소 10분, 최대 15분
       else {
         var sigTs=sigs.filter(function(sg){ return sg.savedAt; })
                       .map(function(sg){ return Number(sg.savedAt); });
         var lastSigTs=sigTs.length?Math.max.apply(null,sigTs):null;
         if(startDate && lastSigTs){
           var diffMin2=Math.round((lastSigTs-startDate.getTime())/60000);
-          if(diffMin2>10) durationMin=Math.min(diffMin2,240);
+          durationMin=Math.max(10,Math.min(diffMin2,15));
         }
       }
       s.durationMin=durationMin;
@@ -3513,7 +3572,7 @@ async function aLoadEduTime(){
       +'</div>'
       +'<div style="background:var(--gyb);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--sub);line-height:1.6;">'
       +'📅 '+EDU_FROM+' ~ '+EDU_TO+'<br>'
-      +'⏱ 교육시간 기준: ① 시작~종료시간 직접입력 ② 시작시각~마지막서명 / 최소 10분'
+      +'⏱ 교육시간 기준: ① 시작~종료시간 직접입력 → 실제값 ② 마지막서명 기준 → 최소 10분, 최대 15분'
       +'</div>';
     summaryCard.style.display='block';
 
@@ -3606,7 +3665,7 @@ function previewAdmTime(){
     prev.textContent='⏱ 교육시간: '+(h>0?h+'시간 ':'')+m+'분'+(diff<10?' (최소 10분 적용)':'');
     prev.style.display='block';
   } else if(st&&!et){
-    prev.textContent='종료시간 미입력 → 마지막 서명 시각 자동 적용 (최소 10분)';
+    prev.textContent='종료시간 미입력 → 마지막 서명 시각 기준 (최소 10분 / 최대 15분)';
     prev.style.display='block';
     prev.style.background='var(--orb)'; prev.style.color='var(--or)';
     return;
@@ -3626,7 +3685,8 @@ async function saveAdmTimeEdit(){
   if(et){
     const [sh,sm]=st.split(':').map(Number);
     const [eh,em]=et.split(':').map(Number);
-    const diff=(eh*60+em)-(sh*60+sm);
+    let diff=(eh*60+em)-(sh*60+sm);
+    if(diff<0) diff+=1440; // 자정 넘기는 경우
     if(diff<=0){ errEl.textContent='종료 시간이 시작 시간보다 늦어야 합니다.'; errEl.style.display='block'; return; }
   }
   try{
@@ -3722,9 +3782,10 @@ function applyViewerMode(){
     else { inp.removeAttribute('readonly'); inp.style.background=''; }
   });
 
-  // 이력 탭: 시간수정 버튼 숨김
-  const timeEditBtn=document.querySelector('#adc3 .btn-ol');
-  if(timeEditBtn) timeEditBtn.style.display=ADM_VIEWER_MODE?'none':'';
+  // 이력 탭: 수정 버튼 전체 숨김 (querySelectorAll로 모두 처리)
+  document.querySelectorAll('#adc3 .btn-ol, #adc3 .btn-rd').forEach(function(btn){
+    btn.style.display=ADM_VIEWER_MODE?'none':'';
+  });
 }
 
 // [patchAdminLogin 제거 - doAdminLogin에 통합됨]
@@ -3815,14 +3876,14 @@ async function exportExcel(){
             const [sh,sm]=t.time.split(':').map(Number);
             const [eh,em]=t.endTime.split(':').map(Number);
             const d2=(eh*60+em)-(sh*60+sm);
-            if(d2>0) dur=Math.max(10,Math.min(d2,240));
+            if(d2>0) dur=Math.max(10,Math.min(d2,240)); // endTime 입력: 실제값
           } else if(t.time){
             const startD=hmToDate(t.date,t.time);
             const sigTs=sigs.filter(function(s){ return s.savedAt; }).map(function(s){ return Number(s.savedAt); });
             const lastTs=sigTs.length?Math.max.apply(null,sigTs):null;
             if(startD&&lastTs){
               const d2=Math.round((lastTs-startD.getTime())/60000);
-              if(d2>10) dur=Math.min(d2,240);
+              dur=Math.max(10,Math.min(d2,15)); // 마지막 서명: 최소10분, 최대15분
             }
           }
 
@@ -3926,12 +3987,12 @@ async function exportExcel(){
             const [sh,sm]=t.time.split(':').map(Number);
             const [eh,em]=t.endTime.split(':').map(Number);
             const d2=(eh*60+em)-(sh*60+sm);
-            if(d2>0) dur=Math.max(10,Math.min(d2,240));
+            if(d2>0) dur=Math.max(10,Math.min(d2,240)); // endTime 입력: 실제값
           } else if(t.time){
             const startD=hmToDate(t.date,t.time);
             const sigTs=sigs.filter(function(s){ return s.savedAt; }).map(function(s){ return Number(s.savedAt); });
             const lastTs=sigTs.length?Math.max.apply(null,sigTs):null;
-            if(startD&&lastTs){ const d2=Math.round((lastTs-startD.getTime())/60000); if(d2>10) dur=Math.min(d2,240); }
+            if(startD&&lastTs){ const d2=Math.round((lastTs-startD.getTime())/60000); dur=Math.max(10,Math.min(d2,15)); } // 최소10분, 최대15분
           }
           assigned.forEach(function(m){
             const did=sigs.some(function(s){ return s.name===m.name; });
@@ -4236,6 +4297,7 @@ document.addEventListener('click', function(e){
   if(e.target.id==='emp-delete-modal') closeEmpDeleteModal();
   if(e.target.id==='emp-edit-modal') closeEmpEditModal();
   if(e.target.id==='adm-time-edit-modal') closeAdmTimeEdit();
+  if(e.target.id==='onsite-sig-modal') closeOnsiteSig();
 });
 </script>
 </body>
