@@ -2719,6 +2719,7 @@ async function genPDF(){
   setSS('ok','PDF 생성 중...');
 
   const tbm=TBM||{};
+  const date=tbm.date||todayStr(); // ← 빠진 변수 복원
 
   // 종료 시간 계산
   // ① endTime 직접 입력: 그대로 사용
