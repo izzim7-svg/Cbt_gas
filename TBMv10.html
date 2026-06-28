@@ -1029,7 +1029,22 @@ const FB_CONFIG = {
 // ══════════════════════════════════════════════════════════
 // 전역 상태
 // ══════════════════════════════════════════════════════════
-const LS = localStorage;
+// localStorage iOS Safari 호환 wrapper
+var LS = (function(){
+  try{
+    window.localStorage.setItem('_tbm_test','1');
+    window.localStorage.removeItem('_tbm_test');
+    return window.localStorage;
+  }catch(e){
+    // iOS Safari 개인정보보호 모드 → 메모리 폴백
+    var _mem={};
+    return {
+      getItem:function(k){ return _mem.hasOwnProperty(k)?_mem[k]:null; },
+      setItem:function(k,v){ _mem[k]=String(v); },
+      removeItem:function(k){ delete _mem[k]; }
+    };
+  }
+})();
 let DB = null;
 let CFG = {
   company:'', supervisor:'', supervisorPw:'0000',
@@ -1063,9 +1078,27 @@ function safeKey(s){ return (s||'').replace(/[.#$/\[\]\s]/g,'_'); }
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
 async function dbSet(path, data){ if(!initDB()) throw new Error('DB없음'); await DB.ref(path).set(data); }
-async function dbGet(path){ if(!initDB()) throw new Error('DB없음'); const s=await DB.ref(path).once('value'); return s.val(); }
+async function dbGet(path){
+  if(!initDB()) throw new Error('DB없음');
+  // iOS Safari 호환: timeout 10초 추가
+  return new Promise(function(resolve, reject){
+    var timer=setTimeout(function(){ reject(new Error('Firebase 응답 없음 (10s).')); }, 10000);
+    DB.ref(path).once('value', function(snap){
+      clearTimeout(timer);
+      resolve(snap.val());
+    }, function(err){
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
 async function dbUpdate(path, data){ if(!initDB()) throw new Error('DB없음'); await DB.ref(path).update(data); }
-function dbListen(path, cb){ if(!initDB()) return null; const r=DB.ref(path); r.on('value',s=>cb(s.val())); return r; }
+function dbListen(path, cb){
+  if(!initDB()) return null;
+  var r=DB.ref(path);
+  r.on('value', function(s){ cb(s.val()); });
+  return r;
+}
 function dbUnlisten(ref){ if(ref) ref.off(); }
 
 // ══════════════════════════════════════════════════════════
@@ -1249,7 +1282,9 @@ function startTBMWatcher(){
         dbGet('assignments/' + CUR.team + '/' + dbKey(today))
           .then(function(aData){
             const assigned = aData ? Object.values(aData).filter(Boolean) : [];
-            const isAssigned = assigned.length === 0 || assigned.some(function(a){ return a.name === CUR.name; });
+            // 배정자 없으면 알림 스킵 (배정 후에만 알림)
+            if(assigned.length===0) return;
+            const isAssigned = assigned.some(function(a){ return a.name === CUR.name; });
             if(!isAssigned) return;
 
             const title = '🔔 오늘의 TBM이 등록되었습니다';
@@ -1279,7 +1314,8 @@ function checkUnreadTBM(){
     if(!tbmData) return;
     if(sigData) return; // 이미 서명 완료
     const assigned = aData ? Object.values(aData).filter(Boolean) : [];
-    const isAssigned = assigned.length===0 || assigned.some(function(a){ return a.name===CUR.name; });
+    if(assigned.length===0) return; // 배정자 없으면 알림 스킵
+    const isAssigned = assigned.some(function(a){ return a.name===CUR.name; });
     if(!isAssigned) return;
     // 미서명 상태 → 배너 표시
     showNotifBanner(
@@ -1328,24 +1364,30 @@ async function doLogin(){
 
   if(!name||!pw){ showErr(errEl,'이름과 비밀번호를 입력해주세요.'); return; }
 
-  // 관리감독자 로그인
+  // 관리감독자 로그인 (Firebase 불필요)
   if(name===CFG.supervisor && pw===CFG.supervisorPw){
-    CUR = {name, team:'', rank:'관리감독자', role:'supervisor'};
-    LS.setItem('tbm_session', JSON.stringify(CUR));
+    CUR = {name:name, team:'', rank:'관리감독자', role:'supervisor'};
+    try{ LS.setItem('tbm_session', JSON.stringify(CUR)); }catch(e){}
     goHome(); return;
   }
 
   // 일반 직원 로그인
   setSS('ing','로그인 중...');
+  // iOS: Firebase 명시적 재초기화
+  if(!initDB()){ showErr(errEl,'서버 연결 실패. 잠시 후 다시 시도해주세요.'); setSS('err',''); return; }
+
   try{
     const data = await dbGet('users/'+safeKey(name));
     if(!data){ showErr(errEl,'가입되지 않은 이름입니다. 첫 가입을 해주세요.'); setSS('ok',''); return; }
     if(data.pw !== pw){ showErr(errEl,'비밀번호가 틀렸습니다.'); setSS('ok',''); return; }
     CUR = {name:data.name, team:data.team, rank:data.rank, role:data.role||'member'};
-    LS.setItem('tbm_session', JSON.stringify(CUR));
+    try{ LS.setItem('tbm_session', JSON.stringify(CUR)); }catch(e){}
     setSS('ok','로그인 완료 ✓');
     goHome();
-  }catch(e){ showErr(errEl,'오류: '+e.message); setSS('err',''); }
+  }catch(e){
+    showErr(errEl,'오류: '+e.message+'\n\n잠시 후 다시 시도해주세요.');
+    setSS('err','연결 오류');
+  }
 }
 
 async function doJoin(){
@@ -2111,11 +2153,18 @@ async function loadMemberTBM(team){
       document.getElementById('ms-main').style.display='none'; return; }
     TBM=tbmData;
 
-    // 배정 확인
+    // 배정 확인 — 배정자 목록 기준으로 엄격 체크
     const aData=await dbGet('assignments/'+team+'/'+dbKey(today));
     const assigned=aData?Object.values(aData).filter(Boolean):[];
+    if(assigned.length===0){
+      // 배정자가 아직 없음 → 서명 불가
+      content.innerHTML='<div style="background:var(--orb);border-radius:8px;padding:12px;font-size:13px;color:var(--or);">⚠️ 아직 참여자가 배정되지 않았습니다.<br>TBM 진행자에게 문의하세요.</div>';
+      document.getElementById('ms-main').style.display='block';
+      document.getElementById('ms-sign-section').style.display='none';
+      return;
+    }
     const isAssigned=assigned.some(function(a){ return a.name===CUR.name; });
-    if(!isAssigned && assigned.length>0){
+    if(!isAssigned){
       content.innerHTML='<div style="background:var(--orb);border-radius:8px;padding:12px;font-size:13px;color:var(--or);">⚠️ 오늘 TBM 참여자로 배정되지 않았습니다.<br>TBM 진행자에게 문의하세요.</div>';
       document.getElementById('ms-main').style.display='block';
       document.getElementById('ms-sign-section').style.display='none';
