@@ -2492,15 +2492,17 @@ async function loadDashStatus(){
   let teamData={};
   await Promise.all(CFG.teams.map(async function(team){
     try{
-      let sigDate=today;
       const tbmList=await dbGet('tbm/'+team);
+      let recentTbm=null, sigKey=null, sigDate=today;
       if(tbmList){
-        const dates=Object.values(tbmList).filter(Boolean).map(function(t){ return t.date||''; }).filter(Boolean).sort();
-        if(dates.length>0) sigDate=dates[dates.length-1];
+        const entries=Object.values(tbmList).filter(Boolean)
+          .sort(function(a,b){ return (b.savedAt||0)-(a.savedAt||0); });
+        if(entries.length>0){ recentTbm=entries[0]; sigDate=recentTbm.date||today; sigKey=tbmDbKey(recentTbm); }
       }
+      if(!sigKey) sigKey=dbKey(sigDate);
       const [aData, sigsData]=await Promise.all([
-        dbGet('assignments/'+team+'/'+dbKey(sigDate)),
-        dbGet('sigs/'+team+'/'+dbKey(sigDate))
+        dbGet('assignments/'+team+'/'+sigKey),
+        dbGet('sigs/'+team+'/'+sigKey)
       ]);
       const assigned=aData?Object.values(aData).filter(Boolean):[];
       const sigs=sigsData?Object.values(sigsData).filter(Boolean):[];
@@ -2635,7 +2637,8 @@ async function loadHistory(){
     const entries = [].concat.apply([],results).sort(function(a,b){ return b.date>a.date?1:-1; });
     if(!entries.length){ list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">저장된 TBM이 없습니다.</p>'; return; }
     list.innerHTML=entries.map(function(tbm){
-      return '<div class="hist-row" onclick="loadHistDetail(\''+tbm._team+'\',\''+tbm.date+'\')">'
+      const fkey=tbmDbKey(tbm);
+      return '<div class="hist-row" onclick="loadHistDetail(\''+tbm._team+'\',\''+fkey+'\')">'
         +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">'
         +'<span class="hist-date">'+tbm.date+' '+(tbm.time||'')+'</span>'
         +'<span style="background:var(--prl);color:var(--pr);padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;">'+tbm._team+'</span>'
@@ -2647,19 +2650,20 @@ async function loadHistory(){
   }catch(e){ list.innerHTML='<p style="color:var(--rd);font-size:13px;text-align:center;padding:14px;">불러오기 실패</p>'; }
 }
 
-async function loadHistDetail(team, date){
-  HIST_TEAM_FOR_PDF = team; // PDF 출력용 팀 저장
+async function loadHistDetail(team, key){
+  HIST_TEAM_FOR_PDF = team;
   const card=document.getElementById('hist-detail-card');
   card.style.display='block';
-  document.getElementById('hist-detail-title').textContent=team+' - '+date;
   document.getElementById('hist-detail-content').innerHTML='<span class="spin"></span>불러오는 중...';
   try{
     const [tbmData,sigsData,aData]=await Promise.all([
-      dbGet('tbm/'+team+'/'+dbKey(date)),
-      dbGet('sigs/'+team+'/'+dbKey(date)),
-      dbGet('assignments/'+team+'/'+dbKey(date))
+      dbGet('tbm/'+team+'/'+key),
+      dbGet('sigs/'+team+'/'+key),
+      dbGet('assignments/'+team+'/'+key)
     ]);
-    HIST_TBM=tbmData||{}; HIST_SIGS=sigsData?Object.values(sigsData).filter(Boolean):[];
+    HIST_TBM=Object.assign({},tbmData||{},{_fbKey:key});
+    document.getElementById('hist-detail-title').textContent=team+' - '+(HIST_TBM.date||key);
+    HIST_SIGS=sigsData?Object.values(sigsData).filter(Boolean):[];
     const assigned=aData?Object.values(aData).filter(Boolean):[];
     document.getElementById('hist-detail-content').innerHTML=renderTBMHtml(HIST_TBM);
     document.getElementById('hist-sig-list').innerHTML=
@@ -2682,7 +2686,8 @@ async function genPDFFromHistory(){
   const prev={tbm:TBM, sigs:SIGS, assigned:ASSIGNED, team:LEAD_TEAM};
   TBM=HIST_TBM; SIGS=HIST_SIGS;
   const team=HIST_TEAM_FOR_PDF;
-  const aData=await dbGet('assignments/'+team+'/'+dbKey(HIST_TBM.date));
+  const key=HIST_TBM._fbKey||tbmDbKey(HIST_TBM);
+  const aData=await dbGet('assignments/'+team+'/'+key);
   ASSIGNED=aData?Object.values(aData).filter(Boolean):[];
   LEAD_TEAM=team;
   await genPDF();
@@ -2694,15 +2699,15 @@ async function genPDFFromHistory(){
 // ══════════════════════════════════════════════════════════
 async function genPDF(){
   const team=LEAD_TEAM||CUR.team||'';
-  let date=TBM?TBM.date:todayStr();
+  const key=tbmDbKey(TBM)||dbKey(TBM?TBM.date:todayStr());
   setSS('ing','PDF 데이터 불러오는 중...');
   let meetingDone=null;
   try{
     const [tbmData,sigsData,aData,doneData]=await Promise.all([
-      dbGet('tbm/'+team+'/'+dbKey(date)),
-      dbGet('sigs/'+team+'/'+dbKey(date)),
-      dbGet('assignments/'+team+'/'+dbKey(date)),
-      dbGet('meetings/'+team+'/'+dbKey(date)+'/done')
+      dbGet('tbm/'+team+'/'+key),
+      dbGet('sigs/'+team+'/'+key),
+      dbGet('assignments/'+team+'/'+key),
+      dbGet('meetings/'+team+'/'+key+'/done')
     ]);
     if(tbmData) TBM=tbmData;
     if(sigsData) SIGS=Object.values(sigsData).filter(Boolean);
@@ -3134,18 +3139,25 @@ async function aLoadStatus(){
   let teamData={};
   await Promise.all(CFG.teams.map(async function(team){
     try{
-      let sigDate=today;
       const tbmList=await dbGet('tbm/'+team);
+      let recentTbm=null, sigKey=null, sigDate=today;
       if(tbmList){
-        const dates=Object.values(tbmList).filter(Boolean).map(function(t){ return t.date||''; }).filter(Boolean).sort();
-        if(dates.length>0) sigDate=dates[dates.length-1];
+        // savedAt 기준 가장 최근 TBM
+        const entries=Object.values(tbmList).filter(Boolean)
+          .sort(function(a,b){ return (b.savedAt||0)-(a.savedAt||0); });
+        if(entries.length>0){
+          recentTbm=entries[0];
+          sigDate=recentTbm.date||today;
+          sigKey=tbmDbKey(recentTbm);
+        }
       }
+      if(!sigKey) sigKey=dbKey(sigDate);
       const [aData,sigsData]=await Promise.all([
-        dbGet('assignments/'+team+'/'+dbKey(sigDate)),
-        dbGet('sigs/'+team+'/'+dbKey(sigDate))
+        dbGet('assignments/'+team+'/'+sigKey),
+        dbGet('sigs/'+team+'/'+sigKey)
       ]);
-      teamData[team]={assigned:aData?Object.values(aData).filter(Boolean):[],sigs:sigsData?Object.values(sigsData).filter(Boolean):[],sigDate};
-    }catch(e){ teamData[team]={assigned:[],sigs:[],sigDate:today}; }
+      teamData[team]={assigned:aData?Object.values(aData).filter(Boolean):[],sigs:sigsData?Object.values(sigsData).filter(Boolean):[],sigDate,sigKey};
+    }catch(e){ teamData[team]={assigned:[],sigs:[],sigDate:today,sigKey:dbKey(today)}; }
   }));
   // 통계
   let totalSigs=0,doneCnt=0,activeTeams=0,totalUnsigned=0;
@@ -3560,9 +3572,10 @@ async function aLoadEduTime(){
       var filtered=Object.values(tbmList).filter(Boolean)
         .filter(function(t){ return t.date>=EDU_FROM && t.date<=EDU_TO; });
       await Promise.all(filtered.map(async function(tbm){
+        var tKey=tbmDbKey(tbm); // 실제 Firebase 키
         var res=await Promise.all([
-          dbGet('sigs/'+team+'/'+dbKey(tbm.date)),
-          dbGet('assignments/'+team+'/'+dbKey(tbm.date))
+          dbGet('sigs/'+team+'/'+tKey),
+          dbGet('assignments/'+team+'/'+tKey)
         ]);
         var sigs    =res[0]?Object.values(res[0]).filter(Boolean):[];
         var assigned=res[1]?Object.values(res[1]).filter(Boolean):[];
@@ -3949,10 +3962,11 @@ async function exportExcel(){
           .filter(function(t){ return t.date>=XL_FROM&&t.date<=XL_TO; })
           .sort(function(a,b){ return a.date>b.date?1:-1; });
         for(const t of entries){
+          const tKey=tbmDbKey(t);
           const [aData,sigsData,doneData]=await Promise.all([
-            dbGet('assignments/'+team+'/'+dbKey(t.date)),
-            dbGet('sigs/'+team+'/'+dbKey(t.date)),
-            dbGet('meetings/'+team+'/'+dbKey(t.date)+'/done')
+            dbGet('assignments/'+team+'/'+tKey),
+            dbGet('sigs/'+team+'/'+tKey),
+            dbGet('meetings/'+team+'/'+tKey+'/done')
           ]);
           const assigned=aData?Object.values(aData).filter(Boolean):[];
           const sigs    =sigsData?Object.values(sigsData).filter(Boolean):[];
@@ -4036,9 +4050,10 @@ async function exportExcel(){
           .filter(function(t){ return t.date>=XL_FROM&&t.date<=XL_TO; })
           .sort(function(a,b){ return a.date>b.date?1:-1; });
         for(const t of entries){
+          const tKey=tbmDbKey(t);
           const [aData,sigsData]=await Promise.all([
-            dbGet('assignments/'+team+'/'+dbKey(t.date)),
-            dbGet('sigs/'+team+'/'+dbKey(t.date))
+            dbGet('assignments/'+team+'/'+tKey),
+            dbGet('sigs/'+team+'/'+tKey)
           ]);
           const assigned=aData?Object.values(aData).filter(Boolean):[];
           const sigs=sigsData?Object.values(sigsData).filter(Boolean):[];
@@ -4063,9 +4078,10 @@ async function exportExcel(){
         const entries=Object.values(tbmData).filter(Boolean)
           .filter(function(t){ return t.date>=XL_FROM&&t.date<=XL_TO; });
         for(const t of entries){
+          const tKey=tbmDbKey(t);
           const [aData,sigsData]=await Promise.all([
-            dbGet('assignments/'+team+'/'+dbKey(t.date)),
-            dbGet('sigs/'+team+'/'+dbKey(t.date))
+            dbGet('assignments/'+team+'/'+tKey),
+            dbGet('sigs/'+team+'/'+tKey)
           ]);
           const assigned=aData?Object.values(aData).filter(Boolean):[];
           const sigs=sigsData?Object.values(sigsData).filter(Boolean):[];
@@ -4326,7 +4342,8 @@ async function loadPdfTabList(){
     if(!data||!Object.keys(data).length){ list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">저장된 TBM이 없습니다.</p>'; return; }
     const entries = Object.values(data).filter(Boolean).sort(function(a,b){ return b.date>a.date?1:-1; });
     list.innerHTML = entries.map(function(tbm){
-      return '<div class="pdf-hist-row" onclick="loadAdminPdfDetail(\''+team+'\',\''+tbm.date+'\')">'
+      const fkey=tbmDbKey(tbm);
+      return '<div class="pdf-hist-row" onclick="loadAdminPdfDetail(\''+team+'\',\''+fkey+'\')">'
         +'<div style="font-size:20px;margin-right:4px;">📄</div>'
         +'<div style="flex:1;">'
         +'<div style="font-size:13px;font-weight:700;color:var(--pr);">'+tbm.date+(tbm.time?' '+tbm.time:'')+'</div>'
@@ -4339,19 +4356,19 @@ async function loadPdfTabList(){
   }catch(e){ list.innerHTML='<p style="color:var(--rd);font-size:13px;text-align:center;padding:14px;">불러오기 실패</p>'; }
 }
 
-async function loadAdminPdfDetail(team, date){
+async function loadAdminPdfDetail(team, key){
   ADMIN_PDF_TEAM = team;
   const card = document.getElementById('pdf-tab-detail-card');
   card.style.display = 'block';
-  document.getElementById('pdf-tab-detail-title').textContent = team+' — '+date;
   document.getElementById('pdf-tab-detail-content').innerHTML = '<span class="spin"></span>불러오는 중...';
   try{
     const [tbmData, sigsData, aData] = await Promise.all([
-      dbGet('tbm/'+team+'/'+dbKey(date)),
-      dbGet('sigs/'+team+'/'+dbKey(date)),
-      dbGet('assignments/'+team+'/'+dbKey(date))
+      dbGet('tbm/'+team+'/'+key),
+      dbGet('sigs/'+team+'/'+key),
+      dbGet('assignments/'+team+'/'+key)
     ]);
-    ADMIN_PDF_TBM      = tbmData||{};
+    ADMIN_PDF_TBM      = Object.assign({},tbmData||{},{_fbKey:key});
+    document.getElementById('pdf-tab-detail-title').textContent = team+' — '+(ADMIN_PDF_TBM.date||key);
     ADMIN_PDF_SIGS     = sigsData ? Object.values(sigsData).filter(Boolean) : [];
     ADMIN_PDF_ASSIGNED = aData    ? Object.values(aData).filter(Boolean)    : [];
 
