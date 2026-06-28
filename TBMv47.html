@@ -1696,7 +1696,13 @@ function goLead(){
   const supEl  = document.getElementById('t-supervisor');
   if(leadEl) leadEl.value = CUR.name + ' (' + CUR.rank + ')';
   if(supEl)  supEl.value  = CFG.supervisor || '(설정에서 입력 필요)';
-  loadTBM();
+  // 날짜·시간 현재값으로 항상 세팅 (새 TBM 기본값)
+  const now = new Date();
+  const pad = function(n){ return String(n).padStart(2,'0'); };
+  const dateEl = document.getElementById('t-date');
+  const timeEl = document.getElementById('t-time');
+  if(dateEl) dateEl.value = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+  if(timeEl) timeEl.value = pad(now.getHours())+':'+pad(now.getMinutes());
   lStep(0);
   go('lead');
 }
