@@ -616,17 +616,23 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
     <div class="signin-card">
       <div class="signin-logo">🔐</div>
       <div class="signin-title" style="color:var(--rd);">관리자 모드</div>
-      <div class="tab-switch" style="margin-bottom:14px;">
-        <button class="tab-sw-btn on" id="sw-adm-full" onclick="switchAdmLoginTab('full')">🔐 관리자</button>
-        <button class="tab-sw-btn" id="sw-adm-view" onclick="switchAdmLoginTab('view')">👁️ 조회 전용</button>
+      <div class="field" style="margin-bottom:6px;">
+        <label style="font-size:12px;color:var(--sub);">비밀번호 입력</label>
+        <input type="password" id="adm-pw" placeholder="비밀번호 입력"
+          autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')doAdminLogin(event.currentTarget.dataset.mode||'full')"
+          style="font-size:16px;">
       </div>
-      <div id="adm-full-desc" class="signin-sub" style="margin-bottom:10px;">전체 관리 · 수정 · 삭제 가능</div>
-      <div id="adm-view-desc" class="signin-sub" style="display:none;margin-bottom:10px;color:var(--or);">현황 조회 · 이력 보기 · 엑셀 추출만 가능</div>
-      <div style="height:1px;background:var(--bd);margin:10px 0;"></div>
-      <div class="field"><label id="adm-pw-label">관리자 비밀번호</label><input type="password" id="adm-pw" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter')doAdminLogin()"></div>
       <div id="adm-login-err" style="display:none;background:var(--rdb);color:var(--rd);border-radius:8px;padding:10px;font-size:13px;margin-bottom:10px;text-align:center;"></div>
-      <button class="btn btn-rd" onclick="doAdminLogin()">🔐 관리자 접속</button>
-      <button class="btn btn-gy" onclick="go('signin')" style="margin-top:10px;">← 일반 로그인으로</button>
+      <!-- 버튼 두 개 분리 — 탭 없이 명확하게 -->
+      <button class="btn btn-rd" onclick="doAdminLogin('full')" style="margin-bottom:8px;">
+        🔐 관리자 접속 <span style="font-size:11px;opacity:.8;">(전체 권한)</span>
+      </button>
+      <button class="btn" onclick="doAdminLogin('view')"
+        style="background:#7c3aed;color:#fff;margin-bottom:8px;">
+        👁️ 조회 전용 접속 <span style="font-size:11px;opacity:.8;">(읽기·엑셀만)</span>
+      </button>
+      <button class="btn btn-gy" onclick="go('signin')">← 일반 로그인으로</button>
     </div>
     <div style="text-align:center;color:rgba(255,255,255,.4);font-size:11px;margin-top:14px;">관리자 전용 · 비인가자 접근 금지</div>
   </div>
@@ -1091,29 +1097,80 @@ function dbKey(s){ return (s||'').replace(/-/g,'').replace(/[.#$/\[\]\s]/g,'_');
 function safeKey(s){ return (s||'').replace(/[.#$/\[\]\s]/g,'_'); }
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
-async function dbSet(path, data){ if(!initDB()) throw new Error('DB없음'); await DB.ref(path).set(data); }
+// ── Firebase REST API (iOS Safari 완전 호환) ──
+var DB_BASE = 'https://tbmgas-a1aa2-default-rtdb.asia-southeast1.firebasedatabase.app';
+
+async function restGet(path){
+  var url=DB_BASE+'/'+path+'.json';
+  var ctrl=new AbortController();
+  var timer=setTimeout(function(){ ctrl.abort(); },10000);
+  try{
+    var res=await fetch(url,{signal:ctrl.signal});
+    clearTimeout(timer);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    return await res.json();
+  }catch(e){ clearTimeout(timer); throw e; }
+}
+async function restSet(path,data){
+  var url=DB_BASE+'/'+path+'.json';
+  var res=await fetch(url,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  return await res.json();
+}
+async function restPatch(path,data){
+  var url=DB_BASE+'/'+path+'.json';
+  var res=await fetch(url,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  return await res.json();
+}
+async function restDelete(path){
+  var url=DB_BASE+'/'+path+'.json';
+  var res=await fetch(url,{method:'DELETE'});
+  if(!res.ok) throw new Error('HTTP '+res.status);
+}
+
+// SDK 사용 가능하면 SDK, 아니면 REST로 폴백
 async function dbGet(path){
-  if(!initDB()) throw new Error('DB없음');
-  // iOS Safari 호환: timeout 10초 추가
-  return new Promise(function(resolve, reject){
-    var timer=setTimeout(function(){ reject(new Error('Firebase 응답 없음 (10s).')); }, 10000);
-    DB.ref(path).once('value', function(snap){
-      clearTimeout(timer);
-      resolve(snap.val());
-    }, function(err){
-      clearTimeout(timer);
-      reject(err);
+  if(DB){
+    return new Promise(function(resolve,reject){
+      var t=setTimeout(function(){ reject(new Error('timeout')); },8000);
+      DB.ref(path).once('value',function(s){ clearTimeout(t); resolve(s.val()); },function(e){ clearTimeout(t); reject(e); });
     });
-  });
+  }
+  return restGet(path);
 }
-async function dbUpdate(path, data){ if(!initDB()) throw new Error('DB없음'); await DB.ref(path).update(data); }
-function dbListen(path, cb){
-  if(!initDB()) return null;
-  var r=DB.ref(path);
-  r.on('value', function(s){ cb(s.val()); });
-  return r;
+async function dbSet(path,data){
+  if(DB){ await DB.ref(path).set(data); return; }
+  await restSet(path,data);
 }
-function dbUnlisten(ref){ if(ref) ref.off(); }
+async function dbUpdate(path,data){
+  if(DB){ await DB.ref(path).update(data); return; }
+  await restPatch(path,data);
+}
+async function dbDelete(path){
+  if(DB){ await DB.ref(path).remove(); return; }
+  await restDelete(path);
+}
+function dbListen(path,cb){
+  if(DB){
+    var r=DB.ref(path);
+    r.on('value',function(s){ cb(s.val()); });
+    return r;
+  }
+  // REST 폴백: 3초 폴링
+  var active=true;
+  var lastVal=undefined;
+  function poll(){
+    if(!active) return;
+    restGet(path).then(function(v){
+      var vStr=JSON.stringify(v);
+      if(vStr!==JSON.stringify(lastVal)){ lastVal=v; cb(v); }
+    }).catch(function(){}).finally(function(){ if(active) setTimeout(poll,3000); });
+  }
+  poll();
+  return {off:function(){ active=false; }};
+}
+function dbUnlisten(ref){ if(ref&&ref.off) ref.off(); }
 
 // ══════════════════════════════════════════════════════════
 // 초기화
@@ -1275,6 +1332,7 @@ function startTBMWatcher(){
   const today = todayStr();
   const path = 'tbm/' + CUR.team + '/' + dbKey(today);
 
+  if(!DB && !initDB()) return;
   tbmNotifListener = DB.ref(path);
   tbmNotifListener.on('value', function(snap){
     const data = snap.val();
@@ -1347,7 +1405,7 @@ function checkUnreadTBM(){
 function checkConn(){
   setSS('ing','Firebase 연결 확인 중...');
   if(!initDB()) return;
-  DB.ref('_ping').set({t:Date.now()})
+  if(DB){ DB.ref('_ping').set({t:Date.now()}) } else { restSet('_ping',{t:Date.now()}) }
     .then(function(){ setSS('ok','Firebase 연결됨 ✓'); })
     .catch(function(e){ setSS('err','연결 실패: '+e.message); });
 }
@@ -2663,24 +2721,27 @@ let ADM_LOGGED = false;
 let ADM_PDF_TBM2=null, ADM_PDF_SIGS2=[], ADM_PDF_ASSIGNED2=[], ADM_PDF_TEAM2='';
 let ADM_HIST_TBM=null, ADM_HIST_SIGS=[], ADM_HIST_ASSIGNED=[], ADM_HIST_TEAM='', ADM_EMP_FILTER='전체';
 
-function doAdminLogin(){
-  const pw=document.getElementById('adm-pw').value;
-  const errEl=document.getElementById('adm-login-err');
+function doAdminLogin(mode){
+  // mode: 'full'(관리자) | 'view'(조회전용) — 버튼에서 직접 전달
+  mode = mode || 'full';
+  var pw=document.getElementById('adm-pw').value;
+  var errEl=document.getElementById('adm-login-err');
   errEl.style.display='none';
   if(!pw){ errEl.textContent='비밀번호를 입력해주세요.'; errEl.style.display='block'; return; }
-  const adminPw=CFG.adminPw||'1234';
-  const viewerPw=CFG.viewerPw||'view1234';
-  const isAdmin=(pw===adminPw);
-  // 조회 전용 탭 선택 시 viewerPw 체크, 관리자 탭이면 adminPw만 체크
-  const isViewer=(ADM_LOGIN_TYPE==='view' && pw===viewerPw);
-  if(!isAdmin && !isViewer){
+  var adminPw=CFG.adminPw||'1234';
+  var viewerPw=CFG.viewerPw||'view1234';
+  var ok=false;
+  if(mode==='full'  && pw===adminPw)  ok=true;
+  if(mode==='view'  && pw===viewerPw) ok=true;
+  // 관리자 비번으로 조회 전용 버튼 눌러도 허용
+  if(mode==='view'  && pw===adminPw)  ok=true;
+  if(!ok){
     errEl.textContent='비밀번호가 틀렸습니다.'; errEl.style.display='block';
     document.getElementById('adm-pw').value='';
-    document.getElementById('adm-pw').style.animation='shake .4s';
-    setTimeout(function(){ document.getElementById('adm-pw').style.animation=''; },400);
     return;
   }
-  ADM_VIEWER_MODE=(!isAdmin && isViewer); // 조회 전용이면 true
+  // 조회전용: view 버튼 + viewerPw (adminPw 아닌 경우)
+  ADM_VIEWER_MODE = (mode==='view' && pw!==adminPw);
   ADM_LOGGED=true;
   document.getElementById('adm-pw').value='';
   go('admin-dash');
@@ -2976,7 +3037,7 @@ function closeEmpDeleteModal(){ document.getElementById('emp-delete-modal').clas
 async function confirmDeleteEmployee(){
   if(!EMP_DELETE_KEY) return;
   try{
-    await DB.ref('users/'+EMP_DELETE_KEY).remove();
+    await dbDelete('users/'+EMP_DELETE_KEY);
     closeEmpDeleteModal();
     alert2('삭제 완료','직원이 삭제되었습니다.');
     aLoadEmployees();
