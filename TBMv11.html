@@ -1067,10 +1067,24 @@ let HIST_TBM = null, HIST_SIGS = [];
 function initDB(){
   if(DB) return true;
   try{
-    if(!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
+    if(typeof firebase === 'undefined'){
+      setSS('err','Firebase 로드 안됨 - 새로고침 필요');
+      return false;
+    }
+    if(!firebase.apps || !firebase.apps.length) firebase.initializeApp(FB_CONFIG);
     DB = firebase.database();
     return true;
-  }catch(e){ setSS('err','Firebase 초기화 실패'); return false; }
+  }catch(e){ setSS('err','Firebase 초기화 실패: '+e.message); return false; }
+}
+
+// Firebase SDK 로드 완료 대기 (iOS 대응)
+function waitForFirebase(cb, retry){
+  retry = retry||0;
+  if(typeof firebase !== 'undefined' && firebase.database){
+    cb(); return;
+  }
+  if(retry>20){ cb(); return; } // 최대 2초 대기 후 포기
+  setTimeout(function(){ waitForFirebase(cb, retry+1); }, 100);
 }
 
 function dbKey(s){ return (s||'').replace(/-/g,'').replace(/[.#$/\[\]\s]/g,'_'); }
@@ -1105,8 +1119,13 @@ function dbUnlisten(ref){ if(ref) ref.off(); }
 // 초기화
 // ══════════════════════════════════════════════════════════
 window.onload = function(){
-  const now = new Date();
-  const pad = n=>String(n).padStart(2,'0');
+  // iOS: Firebase SDK 로드 완료 후 초기화
+  waitForFirebase(function(){
+    initDB(); // 미리 초기화해두기
+  });
+
+  var now = new Date();
+  var pad = function(n){ return String(n).padStart(2,'0'); };
   if(document.getElementById('home-date'))
     document.getElementById('home-date').textContent =
       now.toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
@@ -1373,8 +1392,16 @@ async function doLogin(){
 
   // 일반 직원 로그인
   setSS('ing','로그인 중...');
-  // iOS: Firebase 명시적 재초기화
-  if(!initDB()){ showErr(errEl,'서버 연결 실패. 잠시 후 다시 시도해주세요.'); setSS('err',''); return; }
+
+  // iOS: Firebase 로드 확인 후 로그인 시도
+  if(typeof firebase === 'undefined' || !firebase.database){
+    showErr(errEl,'서버 초기화 중입니다. 2~3초 후 다시 시도해주세요.');
+    setSS('err','Firebase 로드 대기 중');
+    // 자동 재시도
+    waitForFirebase(function(){ initDB(); setSS('ok','연결됨. 다시 시도해주세요.'); });
+    return;
+  }
+  if(!initDB()){ showErr(errEl,'서버 연결 실패. 새로고침 후 다시 시도해주세요.'); setSS('err',''); return; }
 
   try{
     const data = await dbGet('users/'+safeKey(name));
@@ -2637,21 +2664,28 @@ let ADM_PDF_TBM2=null, ADM_PDF_SIGS2=[], ADM_PDF_ASSIGNED2=[], ADM_PDF_TEAM2='';
 let ADM_HIST_TBM=null, ADM_HIST_SIGS=[], ADM_HIST_ASSIGNED=[], ADM_HIST_TEAM='', ADM_EMP_FILTER='전체';
 
 function doAdminLogin(){
-  const pw = document.getElementById('adm-pw').value;
-  const errEl = document.getElementById('adm-login-err');
+  const pw=document.getElementById('adm-pw').value;
+  const errEl=document.getElementById('adm-login-err');
   errEl.style.display='none';
   if(!pw){ errEl.textContent='비밀번호를 입력해주세요.'; errEl.style.display='block'; return; }
-  const adminPw = CFG.adminPw || '1234'; // 기본 관리자 비번
-  if(pw !== adminPw){ errEl.textContent='비밀번호가 틀렸습니다.'; errEl.style.display='block';
+  const adminPw=CFG.adminPw||'1234';
+  const viewerPw=CFG.viewerPw||'view1234';
+  const isAdmin=(pw===adminPw);
+  // 조회 전용 탭 선택 시 viewerPw 체크, 관리자 탭이면 adminPw만 체크
+  const isViewer=(ADM_LOGIN_TYPE==='view' && pw===viewerPw);
+  if(!isAdmin && !isViewer){
+    errEl.textContent='비밀번호가 틀렸습니다.'; errEl.style.display='block';
     document.getElementById('adm-pw').value='';
     document.getElementById('adm-pw').style.animation='shake .4s';
     setTimeout(function(){ document.getElementById('adm-pw').style.animation=''; },400);
     return;
   }
-  ADM_LOGGED = true;
+  ADM_VIEWER_MODE=(!isAdmin && isViewer); // 조회 전용이면 true
+  ADM_LOGGED=true;
   document.getElementById('adm-pw').value='';
   go('admin-dash');
   aTab(0);
+  applyViewerMode();
 }
 
 function goAdminBack(){
@@ -3400,34 +3434,7 @@ function applyViewerMode(){
   if(bar) bar.style.display=ADM_VIEWER_MODE?'block':'none';
 }
 
-// doAdminLogin 교체: viewerPw 체크 추가
-(function patchAdminLogin(){
-  const orig=window.doAdminLogin;
-  window.doAdminLogin=function(){
-    const pw=document.getElementById('adm-pw').value;
-    const errEl=document.getElementById('adm-login-err');
-    errEl.style.display='none';
-    if(!pw){ errEl.textContent='비밀번호를 입력해주세요.'; errEl.style.display='block'; return; }
-    const adminPw=CFG.adminPw||'1234';
-    const viewerPw=CFG.viewerPw||'view1234';
-    const isAdmin=(pw===adminPw);
-    const isViewer=(ADM_LOGIN_TYPE==='view' && pw===viewerPw);
-    if(!isAdmin && !isViewer){
-      errEl.textContent='비밀번호가 틀렸습니다.'; errEl.style.display='block';
-      document.getElementById('adm-pw').value='';
-      document.getElementById('adm-pw').style.animation='shake .4s';
-      setTimeout(function(){ document.getElementById('adm-pw').style.animation=''; },400);
-      return;
-    }
-    // 관리자 전체 권한: pw===adminPw 이면 항상 full
-    ADM_VIEWER_MODE = !isAdmin && isViewer;
-    ADM_LOGGED=true;
-    document.getElementById('adm-pw').value='';
-    go('admin-dash');
-    aTab(0);
-    applyViewerMode();
-  };
-})();
+// [patchAdminLogin 제거 - doAdminLogin에 통합됨]
 
 // ══════════════════════════════════════════════════════════
 // 엑셀 추출
