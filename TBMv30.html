@@ -1452,36 +1452,51 @@ async function doLogin(){
 
   if(!name||!pw){ showErr(errEl,'이름과 비밀번호를 입력해주세요.'); return; }
 
-  // ① 관리감독자 로그인 — Firebase 불필요
+  // ① 관리감독자 로그인 (네트워크 불필요)
   if(name===CFG.supervisor && pw===CFG.supervisorPw){
     CUR = {name:name, team:'', rank:'관리감독자', role:'supervisor'};
     try{ LS.setItem('tbm_session', JSON.stringify(CUR)); }catch(e){}
     goHome(); return;
   }
 
-  // ② 일반 직원 — REST API 우선 사용 (iOS Safari 완전 호환)
+  // ② 일반 직원 — SDK 먼저, 실패 시 REST 자동 폴백
   setSS('ing','로그인 중...');
   try{
-    // REST API로 직접 Firebase 조회 (SDK 불필요)
-    var data = await restGet('users/'+safeKey(name));
-    if(!data){
-      showErr(errEl,'가입되지 않은 이름입니다.
-첫 가입 탭에서 가입해주세요.');
-      setSS('ok',''); return;
+    var data = null;
+    var key = safeKey(name);
+    // SDK 시도
+    if(initDB()){
+      try{
+        data = await new Promise(function(resolve, reject){
+          var t=setTimeout(function(){ reject(new Error('timeout')); }, 8000);
+          DB.ref('users/'+key).once('value',
+            function(s){ clearTimeout(t); resolve(s.val()); },
+            function(e){ clearTimeout(t); reject(e); }
+          );
+        });
+      }catch(sdkErr){
+        // SDK 실패 → REST 폴백
+        setSS('ing','REST 연결 시도 중...');
+        var res = await fetch(DB_BASE+'/users/'+key+'.json');
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        data = await res.json();
+      }
+    } else {
+      // SDK 없음 → 바로 REST
+      var res = await fetch(DB_BASE+'/users/'+key+'.json');
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      data = await res.json();
     }
-    if(data.pw !== pw){
-      showErr(errEl,'비밀번호가 틀렸습니다.');
-      setSS('ok',''); return;
-    }
+
+    if(!data){ showErr(errEl,'가입되지 않은 이름입니다. 첫 가입을 해주세요.'); setSS('ok',''); return; }
+    if(data.pw !== pw){ showErr(errEl,'비밀번호가 틀렸습니다.'); setSS('ok',''); return; }
     CUR = {name:data.name||name, team:data.team||'', rank:data.rank||'', role:data.role||'member'};
     try{ LS.setItem('tbm_session', JSON.stringify(CUR)); }catch(e){}
     setSS('ok','로그인 완료 ✓');
-    // SDK도 초기화 시도 (실시간 기능용, 실패해도 무관)
-    try{ initDB(); }catch(e){}
     goHome();
   }catch(e){
-    showErr(errEl,'연결 오류: '+e.message+'\n\n인터넷 연결을 확인하고 다시 시도해주세요.');
-    setSS('err','연결 실패');
+    showErr(errEl,'오류: '+e.message+'\n\n인터넷 연결을 확인해주세요.');
+    setSS('err','연결 오류');
   }
 }
 
@@ -1503,19 +1518,40 @@ async function doJoin(){
 
   setSS('ing','가입 중...');
   try{
-    // REST API로 중복 확인 (iOS Safari 호환)
-    var exists = await restGet('users/'+safeKey(name));
+    var key=safeKey(name);
+    var exists=null;
+    // SDK 먼저, 실패 시 REST
+    if(initDB()){
+      try{
+        exists=await new Promise(function(res,rej){
+          var t=setTimeout(function(){ rej(new Error('timeout')); },8000);
+          DB.ref('users/'+key).once('value',function(s){ clearTimeout(t); res(s.val()); },function(e){ clearTimeout(t); rej(e); });
+        });
+      }catch(e2){
+        var r2=await fetch(DB_BASE+'/users/'+key+'.json');
+        exists=await r2.json();
+      }
+    } else {
+      var r3=await fetch(DB_BASE+'/users/'+key+'.json');
+      exists=await r3.json();
+    }
     if(exists){ showErr(errEl,'이미 가입된 이름입니다. 로그인해주세요.'); setSS('ok',''); return; }
 
-    var userData = {name:name, team:team, rank:rank, pw:pw, role:'member', joinedAt:Date.now()};
-    await restSet('users/'+safeKey(name), userData);
-
-    CUR = {name:name, team:team, rank:rank, role:'member'};
+    var userData={name:name, team:team, rank:rank, pw:pw, role:'member', joinedAt:Date.now()};
+    // 저장: SDK 먼저, 실패 시 REST PUT
+    var saved=false;
+    if(initDB()){
+      try{ await dbSet('users/'+key, userData); saved=true; }catch(e3){}
+    }
+    if(!saved){
+      var r4=await fetch(DB_BASE+'/users/'+key+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(userData)});
+      if(!r4.ok) throw new Error('저장 실패 HTTP '+r4.status);
+    }
+    CUR={name:name, team:team, rank:rank, role:'member'};
     try{ LS.setItem('tbm_session', JSON.stringify(CUR)); }catch(e){}
     setSS('ok','가입 완료 ✓');
-    try{ initDB(); }catch(e){}
     goHome();
-  }catch(e){ showErr(errEl,'오류: '+e.message+'\n\n인터넷 연결을 확인해주세요.'); setSS('err',''); }
+  }catch(e){ showErr(errEl,'오류: '+e.message); setSS('err',''); }
 }
 
 function showErr(el, msg){ el.textContent=msg; el.style.display='block'; }
