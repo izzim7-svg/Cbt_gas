@@ -3218,7 +3218,8 @@ async function aLoadPdfList(){
 
     list.innerHTML=entries.map(function(tbm){
       const isToday=tbm.date===todayStr();
-      return '<div class="pdf-hist-row" onclick="aLoadPdfDetail(\''+tbm._team+'\',\''+tbm.date+'\')">'
+      const fkey=tbmDbKey(tbm); // 실제 Firebase 키
+      return '<div class="pdf-hist-row" onclick="aLoadPdfDetail(\''+tbm._team+'\',\''+fkey+'\')">'
         +'<div style="font-size:20px;">📄</div>'
         +'<div style="flex:1;">'
         +'<div style="display:flex;align-items:center;gap:6px;">'
@@ -3235,19 +3236,21 @@ async function aLoadPdfList(){
   }catch(e){ list.innerHTML='<p style="color:var(--rd);font-size:13px;text-align:center;padding:14px;">불러오기 실패</p>'; }
 }
 
-async function aLoadPdfDetail(team, date){
+async function aLoadPdfDetail(team, key){
   ADM_PDF_TEAM2=team;
   const card=document.getElementById('apdf2-detail-card');
   card.style.display='block';
-  document.getElementById('apdf2-detail-title').textContent=team+' — '+date;
   document.getElementById('apdf2-detail-content').innerHTML='<span class="spin"></span>불러오는 중...';
   try{
     const [tbmData,sigsData,aData]=await Promise.all([
-      dbGet('tbm/'+team+'/'+dbKey(date)),
-      dbGet('sigs/'+team+'/'+dbKey(date)),
-      dbGet('assignments/'+team+'/'+dbKey(date))
+      dbGet('tbm/'+team+'/'+key),
+      dbGet('sigs/'+team+'/'+key),
+      dbGet('assignments/'+team+'/'+key)
     ]);
-    ADM_PDF_TBM2=tbmData||{}; ADM_PDF_SIGS2=sigsData?Object.values(sigsData).filter(Boolean):[]; ADM_PDF_ASSIGNED2=aData?Object.values(aData).filter(Boolean):[];
+    ADM_PDF_TBM2=Object.assign({},tbmData||{},{_fbKey:key}); // Firebase 키 보존
+    document.getElementById('apdf2-detail-title').textContent=team+' — '+(ADM_PDF_TBM2.date||key);
+    ADM_PDF_SIGS2=sigsData?Object.values(sigsData).filter(Boolean):[];
+    ADM_PDF_ASSIGNED2=aData?Object.values(aData).filter(Boolean):[];
     document.getElementById('apdf2-detail-content').innerHTML=renderTBMHtml(ADM_PDF_TBM2);
     const sigCount=ADM_PDF_ASSIGNED2.filter(function(m){ return ADM_PDF_SIGS2.find(function(s){ return s.name===m.name; }); }).length;
     document.getElementById('apdf2-sig-list').innerHTML=
@@ -3432,7 +3435,8 @@ async function aLoadHistory(){
     if(!entries.length){ list.innerHTML='<p style="font-size:13px;color:var(--sub);text-align:center;padding:14px;">저장된 TBM이 없습니다.</p>'; return; }
 
     list.innerHTML=entries.map(function(tbm){
-      return '<div class="hist-row" onclick="aLoadHistDetail(\''+tbm._team+'\',\''+tbm.date+'\')">'+
+      const fkey=tbmDbKey(tbm); // 실제 Firebase 키
+      return '<div class="hist-row" onclick="aLoadHistDetail(\''+tbm._team+'\',\''+fkey+'\')">'+
         '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">'+
         '<span class="hist-date">'+tbm.date+' '+(tbm.time||'')+'</span>'+
         '<span style="background:var(--prl);color:var(--pr);padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;">'+tbm._team+'</span>'+
@@ -3443,20 +3447,22 @@ async function aLoadHistory(){
   }catch(e){ list.innerHTML='<p style="color:var(--rd);font-size:13px;text-align:center;padding:14px;">불러오기 실패</p>'; }
 }
 
-async function aLoadHistDetail(team, date){
+async function aLoadHistDetail(team, key){
   ADM_HIST_TEAM=team;
-  ADM_HIST_DATE_FOR_EDIT=date; // 시간 수정용
+  ADM_HIST_DATE_FOR_EDIT=key; // 시간 수정용 (key 저장)
   const card=document.getElementById('adm-hist-detail-card');
   card.style.display='block';
-  document.getElementById('adm-hist-detail-title').textContent=team+' - '+date;
   document.getElementById('adm-hist-detail-content').innerHTML='<span class="spin"></span>불러오는 중...';
   try{
     const [tbmData,sigsData,aData]=await Promise.all([
-      dbGet('tbm/'+team+'/'+dbKey(date)),
-      dbGet('sigs/'+team+'/'+dbKey(date)),
-      dbGet('assignments/'+team+'/'+dbKey(date))
+      dbGet('tbm/'+team+'/'+key),
+      dbGet('sigs/'+team+'/'+key),
+      dbGet('assignments/'+team+'/'+key)
     ]);
-    ADM_HIST_TBM=tbmData||{}; ADM_HIST_SIGS=sigsData?Object.values(sigsData).filter(Boolean):[]; ADM_HIST_ASSIGNED=aData?Object.values(aData).filter(Boolean):[];
+    ADM_HIST_TBM=Object.assign({},tbmData||{},{_fbKey:key}); // Firebase 키 보존
+    document.getElementById('adm-hist-detail-title').textContent=team+' - '+(ADM_HIST_TBM.date||key);
+    ADM_HIST_SIGS=sigsData?Object.values(sigsData).filter(Boolean):[];
+    ADM_HIST_ASSIGNED=aData?Object.values(aData).filter(Boolean):[];
     document.getElementById('adm-hist-detail-content').innerHTML=renderTBMHtml(ADM_HIST_TBM);
     const signed=new Set(ADM_HIST_SIGS.map(function(s){ return s.name; }));
     document.getElementById('adm-hist-sig-list').innerHTML=
@@ -3770,13 +3776,11 @@ async function saveAdmTimeEdit(){
     if(diff<=0){ errEl.textContent='종료 시간이 시작 시간보다 늦어야 합니다.'; errEl.style.display='block'; return; }
   }
   try{
-    const path='tbm/'+ADM_HIST_TEAM+'/'+dbKey(ADM_HIST_DATE_FOR_EDIT);
+    const path='tbm/'+ADM_HIST_TEAM+'/'+ADM_HIST_DATE_FOR_EDIT; // 이미 Firebase 키
     await dbUpdate(path,{time:st, endTime:et||''});
-    // 로컬 캐시 업데이트
     if(ADM_HIST_TBM){ ADM_HIST_TBM.time=st; ADM_HIST_TBM.endTime=et||''; }
     closeAdmTimeEdit();
     alert2('수정 완료','TBM 시간이 수정되었습니다.\n시작: '+st+(et?' / 종료: '+et:' (종료 자동)'));
-    // 상세 화면 새로고침
     aLoadHistDetail(ADM_HIST_TEAM, ADM_HIST_DATE_FOR_EDIT);
   }catch(e){ errEl.textContent='저장 실패: '+e.message; errEl.style.display='block'; }
 }
@@ -4183,8 +4187,8 @@ function openTbmDeleteModal(source){
   if(!tbm||!tbm.date){ alert2('선택 필요','먼저 목록에서 TBM을 선택해주세요.'); return; }
   TBM_DELETE_SOURCE = source;
   document.getElementById('tbm-delete-sub').textContent =
-    '['+team+'] '+tbm.date+(tbm.time?' '+tbm.time:'')
-    +' — '+( tbm.work||'').slice(0,20)+' TBM을 삭제하시겠습니까?';
+    '['+team+'] '+(tbm.date||'')+( tbm.time?' '+tbm.time:'')
+    +(tbm.work?' — '+(tbm.work||'').slice(0,20):'') + ' TBM을 삭제하시겠습니까?';
   document.getElementById('tbm-delete-modal').classList.add('open');
 }
 
@@ -4198,10 +4202,11 @@ async function confirmDeleteTbm(){
   const team   = source==='pdf' ? ADM_PDF_TEAM2 : ADM_HIST_TEAM;
   if(!tbm||!team){ closeTbmDeleteModal(); return; }
 
-  const key = tbmDbKey(tbm);
+  // _fbKey: 실제 Firebase에서 읽어온 경로 키 (가장 정확)
+  const key = tbm._fbKey || tbmDbKey(tbm);
+  if(!key){ alert2('오류','Firebase 키를 확인할 수 없습니다.'); closeTbmDeleteModal(); return; }
 
   try{
-    // tbm / assignments / sigs / meetings 모두 삭제
     await Promise.all([
       DB.ref('tbm/'+team+'/'+key).remove(),
       DB.ref('assignments/'+team+'/'+key).remove(),
@@ -4211,15 +4216,14 @@ async function confirmDeleteTbm(){
 
     closeTbmDeleteModal();
 
-    // 상세 카드 숨기기
     if(source==='pdf'){
       ADM_PDF_TBM2=null; ADM_PDF_SIGS2=[]; ADM_PDF_ASSIGNED2=[];
       document.getElementById('apdf2-detail-card').style.display='none';
-      aLoadPdfList(); // 목록 새로고침
+      aLoadPdfList();
     } else {
       ADM_HIST_TBM=null; ADM_HIST_SIGS=[]; ADM_HIST_ASSIGNED=[];
       document.getElementById('adm-hist-detail-card').style.display='none';
-      aLoadHistory(); // 목록 새로고침
+      aLoadHistory();
     }
 
     alert2('삭제 완료','TBM 회의일지가 삭제되었습니다.');
