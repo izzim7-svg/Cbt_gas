@@ -3048,19 +3048,33 @@ function doAdminLogin(){
   const errEl=document.getElementById('adm-login-err');
   errEl.style.display='none';
   if(!pw){ errEl.textContent='비밀번호를 입력해주세요.'; errEl.style.display='block'; return; }
+
   const adminPw=CFG.adminPw||'1234';
   const viewerPw=CFG.viewerPw||'view1234';
-  const isAdmin=(pw===adminPw);
-  // 조회 전용 탭 선택 시 viewerPw 체크, 관리자 탭이면 adminPw만 체크
-  const isViewer=(ADM_LOGIN_TYPE==='view' && pw===viewerPw);
-  if(!isAdmin && !isViewer){
-    errEl.textContent='비밀번호가 틀렸습니다.'; errEl.style.display='block';
-    document.getElementById('adm-pw').value='';
-    document.getElementById('adm-pw').style.animation='shake .4s';
-    setTimeout(function(){ document.getElementById('adm-pw').style.animation=''; },400);
-    return;
+
+  // 탭에 따라 허용 비밀번호 분리
+  if(ADM_LOGIN_TYPE==='view'){
+    // 조회 전용 탭 — viewerPw만 허용
+    if(pw!==viewerPw){
+      errEl.textContent='조회 전용 비밀번호가 틀렸습니다.'; errEl.style.display='block';
+      document.getElementById('adm-pw').value='';
+      document.getElementById('adm-pw').style.animation='shake .4s';
+      setTimeout(function(){ document.getElementById('adm-pw').style.animation=''; },400);
+      return;
+    }
+    ADM_VIEWER_MODE=true;
+  } else {
+    // 관리자 탭 — adminPw만 허용
+    if(pw!==adminPw){
+      errEl.textContent='관리자 비밀번호가 틀렸습니다.'; errEl.style.display='block';
+      document.getElementById('adm-pw').value='';
+      document.getElementById('adm-pw').style.animation='shake .4s';
+      setTimeout(function(){ document.getElementById('adm-pw').style.animation=''; },400);
+      return;
+    }
+    ADM_VIEWER_MODE=false;
   }
-  ADM_VIEWER_MODE=(!isAdmin && isViewer); // 조회 전용이면 true
+
   ADM_LOGGED=true;
   document.getElementById('adm-pw').value='';
   go('admin-dash');
