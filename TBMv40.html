@@ -198,7 +198,6 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
         <div class="field"><label>이름</label><input type="text" id="li-name" placeholder="홍길동" maxlength="10" autocomplete="name"></div>
         <div class="field"><label>비밀번호</label><input type="password" id="li-pw" placeholder="본인 비밀번호" autocomplete="current-password"></div>
         <button class="btn btn-pr" onclick="doLogin()" style="margin-top:4px;">로그인</button>
-      <div id="conn-test-bar" style="font-size:11px;color:var(--sub);text-align:center;margin-top:6px;padding:4px;"></div>
         <div id="login-err" style="display:none;background:var(--rdb);color:var(--rd);border-radius:8px;padding:10px;font-size:13px;margin-top:10px;text-align:center;"></div>
       </div>
 
@@ -617,23 +616,17 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
     <div class="signin-card">
       <div class="signin-logo">🔐</div>
       <div class="signin-title" style="color:var(--rd);">관리자 모드</div>
-      <div class="field" style="margin-bottom:6px;">
-        <label style="font-size:12px;color:var(--sub);">비밀번호 입력</label>
-        <input type="password" id="adm-pw" placeholder="비밀번호 입력"
-          autocomplete="current-password"
-          onkeydown="if(event.key==='Enter')doAdminLogin(event.currentTarget.dataset.mode||'full')"
-          style="font-size:16px;">
+      <div class="tab-switch" style="margin-bottom:14px;">
+        <button class="tab-sw-btn on" id="sw-adm-full" onclick="switchAdmLoginTab('full')">🔐 관리자</button>
+        <button class="tab-sw-btn" id="sw-adm-view" onclick="switchAdmLoginTab('view')">👁️ 조회 전용</button>
       </div>
+      <div id="adm-full-desc" class="signin-sub" style="margin-bottom:10px;">전체 관리 · 수정 · 삭제 가능</div>
+      <div id="adm-view-desc" class="signin-sub" style="display:none;margin-bottom:10px;color:var(--or);">현황 조회 · 이력 보기 · 엑셀 추출만 가능</div>
+      <div style="height:1px;background:var(--bd);margin:10px 0;"></div>
+      <div class="field"><label id="adm-pw-label">관리자 비밀번호</label><input type="password" id="adm-pw" placeholder="비밀번호 입력" autocomplete="current-password" onkeydown="if(event.key==='Enter')doAdminLogin()"></div>
       <div id="adm-login-err" style="display:none;background:var(--rdb);color:var(--rd);border-radius:8px;padding:10px;font-size:13px;margin-bottom:10px;text-align:center;"></div>
-      <!-- 버튼 두 개 분리 — 탭 없이 명확하게 -->
-      <button class="btn btn-rd" onclick="doAdminLogin('full')" style="margin-bottom:8px;">
-        🔐 관리자 접속 <span style="font-size:11px;opacity:.8;">(전체 권한)</span>
-      </button>
-      <button class="btn" onclick="doAdminLogin('view')"
-        style="background:#7c3aed;color:#fff;margin-bottom:8px;">
-        👁️ 조회 전용 접속 <span style="font-size:11px;opacity:.8;">(읽기·엑셀만)</span>
-      </button>
-      <button class="btn btn-gy" onclick="go('signin')">← 일반 로그인으로</button>
+      <button class="btn btn-rd" id="adm-login-btn" onclick="doAdminLogin()">🔐 관리자 접속</button>
+      <button class="btn btn-gy" onclick="go('signin')" style="margin-top:10px;">← 일반 로그인으로</button>
     </div>
     <div style="text-align:center;color:rgba(255,255,255,.4);font-size:11px;margin-top:14px;">관리자 전용 · 비인가자 접근 금지</div>
   </div>
@@ -1059,7 +1052,7 @@ let CFG = {
   teams:['공급관리팀','안전관리팀','고객지원팀','기술팀','영업팀','경영관리팀','재무관리팀','임실지사','부안지사','진안지사'],
   ranks:['사원','계장','대리','과장','차장','부장','본부장','이사']
 };
-let CUR = null; // 현재 로그인 사용자 {name:null, team:null, rank:null, role:null}
+let CUR = null; // 현재 로그인 사용자 {name, team, rank, role}
 let TBM = null;
 let SIGS = [];
 let ASSIGNED = []; // 이번 TBM 참여자 목록
@@ -1098,80 +1091,29 @@ function dbKey(s){ return (s||'').replace(/-/g,'').replace(/[.#$/\[\]\s]/g,'_');
 function safeKey(s){ return (s||'').replace(/[.#$/\[\]\s]/g,'_'); }
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
-// ── Firebase REST API (iOS Safari 완전 호환) ──
-var DB_BASE = 'https://tbmgas-a1aa2-default-rtdb.asia-southeast1.firebasedatabase.app';
-
-async function restGet(path){
-  var url=DB_BASE+'/'+path+'.json';
-  var ctrl=new AbortController();
-  var timer=setTimeout(function(){ ctrl.abort(); },10000);
-  try{
-    var res=await fetch(url,{signal:ctrl.signal});
-    clearTimeout(timer);
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    return await res.json();
-  }catch(e){ clearTimeout(timer); throw e; }
-}
-async function restSet(path,data){
-  var url=DB_BASE+'/'+path+'.json';
-  var res=await fetch(url,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-  if(!res.ok) throw new Error('HTTP '+res.status);
-  return await res.json();
-}
-async function restPatch(path,data){
-  var url=DB_BASE+'/'+path+'.json';
-  var res=await fetch(url,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-  if(!res.ok) throw new Error('HTTP '+res.status);
-  return await res.json();
-}
-async function restDelete(path){
-  var url=DB_BASE+'/'+path+'.json';
-  var res=await fetch(url,{method:'DELETE'});
-  if(!res.ok) throw new Error('HTTP '+res.status);
-}
-
-// SDK 사용 가능하면 SDK, 아니면 REST로 폴백
+async function dbSet(path, data){ if(!initDB()) throw new Error('DB없음'); await DB.ref(path).set(data); }
 async function dbGet(path){
-  if(DB){
-    return new Promise(function(resolve,reject){
-      var t=setTimeout(function(){ reject(new Error('timeout')); },8000);
-      DB.ref(path).once('value',function(s){ clearTimeout(t); resolve(s.val()); },function(e){ clearTimeout(t); reject(e); });
+  if(!initDB()) throw new Error('DB없음');
+  // iOS Safari 호환: timeout 10초 추가
+  return new Promise(function(resolve, reject){
+    var timer=setTimeout(function(){ reject(new Error('Firebase 응답 없음 (10s).')); }, 10000);
+    DB.ref(path).once('value', function(snap){
+      clearTimeout(timer);
+      resolve(snap.val());
+    }, function(err){
+      clearTimeout(timer);
+      reject(err);
     });
-  }
-  return restGet(path);
+  });
 }
-async function dbSet(path,data){
-  if(DB){ await DB.ref(path).set(data); return; }
-  await restSet(path,data);
+async function dbUpdate(path, data){ if(!initDB()) throw new Error('DB없음'); await DB.ref(path).update(data); }
+function dbListen(path, cb){
+  if(!initDB()) return null;
+  var r=DB.ref(path);
+  r.on('value', function(s){ cb(s.val()); });
+  return r;
 }
-async function dbUpdate(path,data){
-  if(DB){ await DB.ref(path).update(data); return; }
-  await restPatch(path,data);
-}
-async function dbDelete(path){
-  if(DB){ await DB.ref(path).remove(); return; }
-  await restDelete(path);
-}
-function dbListen(path,cb){
-  if(DB){
-    var r=DB.ref(path);
-    r.on('value',function(s){ cb(s.val()); });
-    return r;
-  }
-  // REST 폴백: 3초 폴링
-  var active=true;
-  var lastVal=undefined;
-  function poll(){
-    if(!active) return;
-    restGet(path).then(function(v){
-      var vStr=JSON.stringify(v);
-      if(vStr!==JSON.stringify(lastVal)){ lastVal=v; cb(v); }
-    }).catch(function(){}).finally(function(){ if(active) setTimeout(poll,3000); });
-  }
-  poll();
-  return {off:function(){ active=false; }};
-}
-function dbUnlisten(ref){ if(ref&&ref.off) ref.off(); }
+function dbUnlisten(ref){ if(ref) ref.off(); }
 
 // ══════════════════════════════════════════════════════════
 // 초기화
@@ -1212,16 +1154,6 @@ window.onload = function(){
     toSave.ranks = CFG.ranks;
     LS.setItem('tbm_cfg', JSON.stringify(Object.assign(toSave, {teams:CFG.teams, ranks:CFG.ranks})));
   }catch(e){}
-
-  // REST API 연결 사전 테스트 (iOS 디버그용)
-  var connBar=document.getElementById('conn-test-bar');
-  if(connBar){ connBar.textContent='🔄 서버 연결 확인 중...'; }
-  restGet('_ping').then(function(){
-    if(connBar) connBar.textContent='✅ 서버 연결 정상';
-    setTimeout(function(){ if(connBar) connBar.textContent=''; },3000);
-  }).catch(function(e){
-    if(connBar) connBar.textContent='⚠️ 서버 연결 실패: '+e.message;
-  });
 
   // 가입 폼 팀/직책 그리드 빌드
   buildSigninGrids();
@@ -1343,7 +1275,6 @@ function startTBMWatcher(){
   const today = todayStr();
   const path = 'tbm/' + CUR.team + '/' + dbKey(today);
 
-  if(!DB && !initDB()) return;
   tbmNotifListener = DB.ref(path);
   tbmNotifListener.on('value', function(snap){
     const data = snap.val();
@@ -1416,7 +1347,7 @@ function checkUnreadTBM(){
 function checkConn(){
   setSS('ing','Firebase 연결 확인 중...');
   if(!initDB()) return;
-  if(DB){ DB.ref('_ping').set({t:Date.now()}) } else { restSet('_ping',{t:Date.now()}) }
+  DB.ref('_ping').set({t:Date.now()})
     .then(function(){ setSS('ok','Firebase 연결됨 ✓'); })
     .catch(function(e){ setSS('err','연결 실패: '+e.message); });
 }
@@ -1445,57 +1376,43 @@ function switchSignin(tab){
 }
 
 async function doLogin(){
-  var name = (document.getElementById('li-name').value||'').trim();
-  var pw   = document.getElementById('li-pw').value||'';
-  var errEl = document.getElementById('login-err');
+  const name = document.getElementById('li-name').value.trim();
+  const pw   = document.getElementById('li-pw').value;
+  const errEl = document.getElementById('login-err');
   errEl.style.display='none';
 
   if(!name||!pw){ showErr(errEl,'이름과 비밀번호를 입력해주세요.'); return; }
 
-  // ① 관리감독자 로그인 (네트워크 불필요)
+  // 관리감독자 로그인 (Firebase 불필요)
   if(name===CFG.supervisor && pw===CFG.supervisorPw){
     CUR = {name:name, team:'', rank:'관리감독자', role:'supervisor'};
     try{ LS.setItem('tbm_session', JSON.stringify(CUR)); }catch(e){}
     goHome(); return;
   }
 
-  // ② 일반 직원 — SDK 먼저, 실패 시 REST 자동 폴백
+  // 일반 직원 로그인
   setSS('ing','로그인 중...');
-  try{
-    var data = null;
-    var key = safeKey(name);
-    // SDK 시도
-    if(initDB()){
-      try{
-        data = await new Promise(function(resolve, reject){
-          var t=setTimeout(function(){ reject(new Error('timeout')); }, 8000);
-          DB.ref('users/'+key).once('value',
-            function(s){ clearTimeout(t); resolve(s.val()); },
-            function(e){ clearTimeout(t); reject(e); }
-          );
-        });
-      }catch(sdkErr){
-        // SDK 실패 → REST 폴백
-        setSS('ing','REST 연결 시도 중...');
-        var res = await fetch(DB_BASE+'/users/'+key+'.json');
-        if(!res.ok) throw new Error('HTTP '+res.status);
-        data = await res.json();
-      }
-    } else {
-      // SDK 없음 → 바로 REST
-      var res = await fetch(DB_BASE+'/users/'+key+'.json');
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      data = await res.json();
-    }
 
+  // iOS: Firebase 로드 확인 후 로그인 시도
+  if(typeof firebase === 'undefined' || !firebase.database){
+    showErr(errEl,'서버 초기화 중입니다. 2~3초 후 다시 시도해주세요.');
+    setSS('err','Firebase 로드 대기 중');
+    // 자동 재시도
+    waitForFirebase(function(){ initDB(); setSS('ok','연결됨. 다시 시도해주세요.'); });
+    return;
+  }
+  if(!initDB()){ showErr(errEl,'서버 연결 실패. 새로고침 후 다시 시도해주세요.'); setSS('err',''); return; }
+
+  try{
+    const data = await dbGet('users/'+safeKey(name));
     if(!data){ showErr(errEl,'가입되지 않은 이름입니다. 첫 가입을 해주세요.'); setSS('ok',''); return; }
     if(data.pw !== pw){ showErr(errEl,'비밀번호가 틀렸습니다.'); setSS('ok',''); return; }
-    CUR = {name:data.name||name, team:data.team||'', rank:data.rank||'', role:data.role||'member'};
+    CUR = {name:data.name, team:data.team, rank:data.rank, role:data.role||'member'};
     try{ LS.setItem('tbm_session', JSON.stringify(CUR)); }catch(e){}
     setSS('ok','로그인 완료 ✓');
     goHome();
   }catch(e){
-    showErr(errEl,'오류: '+e.message+'\n\n인터넷 연결을 확인해주세요.');
+    showErr(errEl,'오류: '+e.message+'\n\n잠시 후 다시 시도해주세요.');
     setSS('err','연결 오류');
   }
 }
@@ -1518,37 +1435,16 @@ async function doJoin(){
 
   setSS('ing','가입 중...');
   try{
-    var key=safeKey(name);
-    var exists=null;
-    // SDK 먼저, 실패 시 REST
-    if(initDB()){
-      try{
-        exists=await new Promise(function(res,rej){
-          var t=setTimeout(function(){ rej(new Error('timeout')); },8000);
-          DB.ref('users/'+key).once('value',function(s){ clearTimeout(t); res(s.val()); },function(e){ clearTimeout(t); rej(e); });
-        });
-      }catch(e2){
-        var r2=await fetch(DB_BASE+'/users/'+key+'.json');
-        exists=await r2.json();
-      }
-    } else {
-      var r3=await fetch(DB_BASE+'/users/'+key+'.json');
-      exists=await r3.json();
-    }
+    // 중복 확인
+    const exists = await dbGet('users/'+safeKey(name));
     if(exists){ showErr(errEl,'이미 가입된 이름입니다. 로그인해주세요.'); setSS('ok',''); return; }
 
-    var userData={name:name, team:team, rank:rank, pw:pw, role:'member', joinedAt:Date.now()};
-    // 저장: SDK 먼저, 실패 시 REST PUT
-    var saved=false;
-    if(initDB()){
-      try{ await dbSet('users/'+key, userData); saved=true; }catch(e3){}
-    }
-    if(!saved){
-      var r4=await fetch(DB_BASE+'/users/'+key+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(userData)});
-      if(!r4.ok) throw new Error('저장 실패 HTTP '+r4.status);
-    }
-    CUR={name:name, team:team, rank:rank, role:'member'};
-    try{ LS.setItem('tbm_session', JSON.stringify(CUR)); }catch(e){}
+    // 모든 사용자 동일 권한 — 직급으로만 구분
+    const userData = {name, team, rank, pw, role:'member', joinedAt:Date.now()};
+    await dbSet('users/'+safeKey(name), userData);
+
+    CUR = {name, team, rank, role:'member'};
+    LS.setItem('tbm_session', JSON.stringify(CUR));
     setSS('ok','가입 완료 ✓');
     goHome();
   }catch(e){ showErr(errEl,'오류: '+e.message); setSS('err',''); }
@@ -1708,12 +1604,12 @@ function menuSignCard(){
 }
 
 function saveCfg(){
-  CFG.company      = ((document.getElementById('cfg-company')||{}).value||'').trim();
-  CFG.supervisor   = ((document.getElementById('cfg-supervisor')||{}).value||'').trim();
-  CFG.supervisorPw = ((document.getElementById('cfg-sup-pw')||{}).value||'0000');
-  CFG.regPw        = ((document.getElementById('cfg-reg-pw')||{}).value||'1234');
-  CFG.teams        = ((document.getElementById('cfg-teams')||{}).value||'').split(',').map(function(t){ return t.trim(); }).filter(Boolean);
-  CFG.ranks        = ((document.getElementById('cfg-ranks')||{}).value||'').split(',').map(function(r){ return r.trim(); }).filter(Boolean);
+  CFG.company      = (document.getElementById('cfg-company')?.value||'').trim();
+  CFG.supervisor   = (document.getElementById('cfg-supervisor')?.value||'').trim();
+  CFG.supervisorPw = (document.getElementById('cfg-sup-pw')?.value||'0000');
+  CFG.regPw        = (document.getElementById('cfg-reg-pw')?.value||'1234');
+  CFG.teams        = (document.getElementById('cfg-teams')?.value||'').split(',').map(function(t){ return t.trim(); }).filter(Boolean);
+  CFG.ranks        = (document.getElementById('cfg-ranks')?.value||'').split(',').map(function(r){ return r.trim(); }).filter(Boolean);
   LS.setItem('tbm_cfg', JSON.stringify(CFG));
   alert2('저장 완료','설정이 저장되었습니다.');
 }
@@ -2405,8 +2301,8 @@ async function submitSig(){
   const date=TBM?TBM.date:todayStr();
   const record={
     name:CUR.name, team:sigTeam, rank:CUR.rank,
-    time, date, sigImg, work:(TBM&&TBM.work)||'', loc:(TBM&&TBM.loc)||'',
-    supervisor:(TBM&&TBM.supervisor)||CFG.supervisor||'', savedAt:Date.now()
+    time, date, sigImg, work:TBM?.work||'', loc:TBM?.loc||'',
+    supervisor:TBM?.supervisor||CFG.supervisor||'', savedAt:Date.now()
   };
   setSS('ing','서명 저장 중...');
   try{
@@ -2767,27 +2663,24 @@ let ADM_LOGGED = false;
 let ADM_PDF_TBM2=null, ADM_PDF_SIGS2=[], ADM_PDF_ASSIGNED2=[], ADM_PDF_TEAM2='';
 let ADM_HIST_TBM=null, ADM_HIST_SIGS=[], ADM_HIST_ASSIGNED=[], ADM_HIST_TEAM='', ADM_EMP_FILTER='전체';
 
-function doAdminLogin(mode){
-  // mode: 'full'(관리자) | 'view'(조회전용) — 버튼에서 직접 전달
-  mode = mode || 'full';
-  var pw=document.getElementById('adm-pw').value;
-  var errEl=document.getElementById('adm-login-err');
+function doAdminLogin(){
+  const pw=document.getElementById('adm-pw').value;
+  const errEl=document.getElementById('adm-login-err');
   errEl.style.display='none';
   if(!pw){ errEl.textContent='비밀번호를 입력해주세요.'; errEl.style.display='block'; return; }
-  var adminPw=CFG.adminPw||'1234';
-  var viewerPw=CFG.viewerPw||'view1234';
-  var ok=false;
-  if(mode==='full'  && pw===adminPw)  ok=true;
-  if(mode==='view'  && pw===viewerPw) ok=true;
-  // 관리자 비번으로 조회 전용 버튼 눌러도 허용
-  if(mode==='view'  && pw===adminPw)  ok=true;
-  if(!ok){
+  const adminPw=CFG.adminPw||'1234';
+  const viewerPw=CFG.viewerPw||'view1234';
+  const isAdmin=(pw===adminPw);
+  // 조회 전용 탭 선택 시 viewerPw 체크, 관리자 탭이면 adminPw만 체크
+  const isViewer=(ADM_LOGIN_TYPE==='view' && pw===viewerPw);
+  if(!isAdmin && !isViewer){
     errEl.textContent='비밀번호가 틀렸습니다.'; errEl.style.display='block';
     document.getElementById('adm-pw').value='';
+    document.getElementById('adm-pw').style.animation='shake .4s';
+    setTimeout(function(){ document.getElementById('adm-pw').style.animation=''; },400);
     return;
   }
-  // 조회전용: view 버튼 + viewerPw (adminPw 아닌 경우)
-  ADM_VIEWER_MODE = (mode==='view' && pw!==adminPw);
+  ADM_VIEWER_MODE=(!isAdmin && isViewer); // 조회 전용이면 true
   ADM_LOGGED=true;
   document.getElementById('adm-pw').value='';
   go('admin-dash');
@@ -2809,6 +2702,11 @@ function logoutAdmin(){
 }
 
 function aTab(n){
+  // 조회 전용: 직원관리(2), 설정(4) 접근 차단
+  if(ADM_VIEWER_MODE && (n===2||n===4)){
+    alert2('접근 불가','조회 전용 모드에서는 이 탭을 사용할 수 없습니다.');
+    return;
+  }
   [0,1,2,3,4,5,6].forEach(function(i){
     const dt=document.getElementById('adt'+i);
     const dc=document.getElementById('adc'+i);
@@ -3012,6 +2910,7 @@ function aInitEmpForm(){
 }
 
 async function aAddEmployee(){
+  if(ADM_VIEWER_MODE){ alert2('접근 불가','조회 전용 모드에서는 직원 추가가 불가합니다.'); return; }
   const name  = (document.getElementById('adm-add-name').value||'').trim();
   const team  = document.getElementById('adm-add-team').value;
   const rank  = document.getElementById('adm-add-rank').value;
@@ -3023,7 +2922,7 @@ async function aAddEmployee(){
   try{
     const exists = await dbGet('users/'+safeKey(name));
     if(exists){ errEl.textContent='이미 등록된 이름입니다.'; errEl.style.display='block'; return; }
-    await dbSet('users/'+safeKey(name), {name:name, team:team, rank:rank, pw:pw, role:'member', joinedAt:Date.now()});
+    await dbSet('users/'+safeKey(name), {name, team, rank, pw, role:'member', joinedAt:Date.now()});
     document.getElementById('adm-add-name').value='';
     document.getElementById('adm-add-pw').value='';
     alert2('추가 완료', '['+name+'] ('+team+' / '+rank+') 직원이 추가되었습니다.');
@@ -3065,10 +2964,12 @@ function aRenderEmployees(){
       +'<div style="font-size:11px;color:var(--sub);">'+u.team+' · '+u.rank+'</div>'
       +'</div>'
       +'<span class="chip '+(isSup?'chip-rd':'chip-bl')+'" style="flex-shrink:0;">'+(isSup?'관리자':'팀원')+'</span>'
-      +'<button onclick="openEmpEditModal(\''+uKey+'\')" '
-      +'style="flex-shrink:0;font-size:11px;padding:5px 8px;border:1px solid var(--prl);border-radius:6px;background:var(--prl);color:var(--pr);cursor:pointer;touch-action:manipulation;">✏️수정</button>'
-      +'<button onclick="openEmpDeleteModal(\''+uKey+'\',\''+u.name+'\')" '
-      +'style="flex-shrink:0;font-size:11px;padding:5px 8px;border:1px solid var(--rdb);border-radius:6px;background:var(--rdb);color:var(--rd);cursor:pointer;touch-action:manipulation;">🗑️삭제</button>'
+      +(!ADM_VIEWER_MODE?
+        '<button onclick="openEmpEditModal(\''+uKey+'\')" '
+        +'style="flex-shrink:0;font-size:11px;padding:5px 8px;border:1px solid var(--prl);border-radius:6px;background:var(--prl);color:var(--pr);cursor:pointer;touch-action:manipulation;">✏️수정</button>'
+        +'<button onclick="openEmpDeleteModal(\''+uKey+'\',\''+u.name+'\')" '
+        +'style="flex-shrink:0;font-size:11px;padding:5px 8px;border:1px solid var(--rdb);border-radius:6px;background:var(--rdb);color:var(--rd);cursor:pointer;touch-action:manipulation;">🗑️삭제</button>'
+      : '')
       +'</div>';
   }).join('');
 }
@@ -3083,7 +2984,7 @@ function closeEmpDeleteModal(){ document.getElementById('emp-delete-modal').clas
 async function confirmDeleteEmployee(){
   if(!EMP_DELETE_KEY) return;
   try{
-    await dbDelete('users/'+EMP_DELETE_KEY);
+    await DB.ref('users/'+EMP_DELETE_KEY).remove();
     closeEmpDeleteModal();
     alert2('삭제 완료','직원이 삭제되었습니다.');
     aLoadEmployees();
@@ -3116,7 +3017,7 @@ async function confirmEditEmployee(){
   errEl.style.display='none';
   if(pw && pw.length<4){ errEl.textContent='비밀번호는 4자 이상이어야 합니다.'; errEl.style.display='block'; return; }
   try{
-    var upd={team:team, rank:rank};
+    const upd={team, rank};
     if(pw) upd.pw=pw;
     await dbUpdate('users/'+EMP_EDIT_KEY, upd);
     closeEmpEditModal();
@@ -3440,6 +3341,7 @@ async function aLoadEduTime(){
 // 관리자 TBM 시간 수정
 // ══════════════════════════════════════════════════════════
 function openAdmTimeEdit(){
+  if(ADM_VIEWER_MODE){ alert2('접근 불가','조회 전용 모드에서는 시간 수정이 불가합니다.'); return; }
   if(!ADM_HIST_TEAM||!ADM_HIST_DATE_FOR_EDIT){ alert2('선택 필요','이력 항목을 먼저 선택해주세요.'); return; }
   const tbm=ADM_HIST_TBM||{};
   document.getElementById('adm-time-edit-sub').textContent=ADM_HIST_TEAM+' · '+ADM_HIST_DATE_FOR_EDIT+' TBM 시간 수정';
@@ -3520,12 +3422,24 @@ function switchAdmLoginTab(type){
   document.getElementById('adm-pw-label').textContent=isView?'조회 전용 비밀번호':'관리자 비밀번호';
   document.getElementById('adm-pw').value='';
   document.getElementById('adm-login-err').style.display='none';
+  // 버튼 스타일·텍스트
+  const loginBtn=document.getElementById('adm-login-btn');
+  if(loginBtn){
+    if(isView){
+      loginBtn.textContent='👁️ 조회 전용 접속';
+      loginBtn.style.background='var(--or)';
+    } else {
+      loginBtn.textContent='🔐 관리자 접속';
+      loginBtn.style.background='';
+      loginBtn.className='btn btn-rd';
+    }
+  }
 }
 
 function applyViewerMode(){
-  // 조회 전용: 직원관리(탭2), 설정(탭4) 탭 숨김/비활성화
-  const restrict=['adt2','adt4'];
-  restrict.forEach(function(id){
+  // ── 탭 버튼: 직원관리(2), 설정(4) 흐리게 & 클릭 차단 ──
+  const restrictTabs=['adt2','adt4'];
+  restrictTabs.forEach(function(id){
     const el=document.getElementById(id);
     if(!el) return;
     if(ADM_VIEWER_MODE){
@@ -3536,9 +3450,45 @@ function applyViewerMode(){
       el.style.pointerEvents='';
     }
   });
-  // 상단 바 표시
+
+  // ── 상단 안내 바 ──
   const bar=document.getElementById('adm-viewer-bar');
   if(bar) bar.style.display=ADM_VIEWER_MODE?'block':'none';
+
+  // ── 탑바 배경색: 조회 전용은 오렌지, 관리자는 원래 색 ──
+  const topbar=document.querySelector('#admin-dash .top-bar');
+  if(topbar){
+    topbar.style.background = ADM_VIEWER_MODE
+      ? 'linear-gradient(90deg,#7c3700,#ea580c)'
+      : 'linear-gradient(90deg,#1a1a2e,#dc2626)';
+  }
+
+  // ── 조회 전용: 직원 추가/삭제/수정/저장 버튼 숨김 ──
+  // 직원 추가 카드 전체
+  const addEmpCard=document.querySelector('#adc2 .card');
+  if(addEmpCard){
+    addEmpCard.style.display=ADM_VIEWER_MODE?'none':'block';
+  }
+  // 직원 목록 내 삭제/수정 버튼 (동적 렌더링이므로 클래스로 제어)
+  document.querySelectorAll('.adm-emp-del-btn, .adm-emp-edit-btn').forEach(function(btn){
+    btn.style.display=ADM_VIEWER_MODE?'none':'';
+  });
+
+  // 설정 탭 저장 버튼, 관리감독자 등록 버튼 숨김
+  const cfgSaveBtn=document.querySelector('#adc4 .btn-pr');
+  if(cfgSaveBtn) cfgSaveBtn.style.display=ADM_VIEWER_MODE?'none':'block';
+  const supRegBtn=document.querySelector('#adc4 .btn-rd');
+  if(supRegBtn) supRegBtn.style.display=ADM_VIEWER_MODE?'none':'block';
+
+  // 설정 탭 입력 필드 읽기 전용
+  document.querySelectorAll('#adc4 input').forEach(function(inp){
+    if(ADM_VIEWER_MODE){ inp.setAttribute('readonly',''); inp.style.background='var(--gyb)'; }
+    else { inp.removeAttribute('readonly'); inp.style.background=''; }
+  });
+
+  // 이력 탭: 시간수정 버튼 숨김
+  const timeEditBtn=document.querySelector('#adc3 .btn-ol');
+  if(timeEditBtn) timeEditBtn.style.display=ADM_VIEWER_MODE?'none':'';
 }
 
 // [patchAdminLogin 제거 - doAdminLogin에 통합됨]
@@ -3640,7 +3590,7 @@ async function exportExcel(){
             }
           }
 
-          tbmRows.push({t:t,team:team,assigned:assigned,sigs:sigs,dur:dur,doneInfo:doneInfo});
+          tbmRows.push({t,team,assigned,sigs,dur,doneInfo});
         }
       }));
 
@@ -3661,7 +3611,7 @@ async function exportExcel(){
       tbmRows.sort(function(a,b){ return a.t.date>b.t.date?1:-1; });
 
       tbmRows.forEach(function(r){
-        var t=r.t; var team=r.team; var assigned=r.assigned; var sigs=r.sigs; var dur=r.dur; var doneInfo=r.doneInfo;
+        const {t,team,assigned,sigs,dur,doneInfo}=r;
         const timeStr=(t.time||'')+(t.endTime?'~'+t.endTime:'');
         const fixed=[t.date,timeStr,team,t.loc||'',t.work||'',t.danger||'',t.safety||'',doneInfo];
 
@@ -3804,12 +3754,13 @@ async function exportExcel(){
 
 // ── 설정 저장 ──
 function aSaveCfg(){
-  CFG.company      = ((document.getElementById('adm-cfg-company')||{}).value||'').trim();
-  CFG.supervisor   = ((document.getElementById('adm-cfg-supervisor')||{}).value||'').trim();
-  CFG.supervisorPw = ((document.getElementById('adm-cfg-suppw')||{}).value||'0000');
-  CFG.adminPw      = ((document.getElementById('adm-cfg-adminpw')||{}).value||'1234');
-  CFG.viewerPw     = ((document.getElementById('adm-cfg-viewerpw')||{}).value||'view1234');
-  CFG.regPw        = ((document.getElementById('adm-cfg-regpw')||{}).value||'1234');
+  if(ADM_VIEWER_MODE){ alert2('접근 불가','조회 전용 모드에서는 설정 변경이 불가합니다.'); return; }
+  CFG.company      = (document.getElementById('adm-cfg-company')?.value||'').trim();
+  CFG.supervisor   = (document.getElementById('adm-cfg-supervisor')?.value||'').trim();
+  CFG.supervisorPw = (document.getElementById('adm-cfg-suppw')?.value||'0000');
+  CFG.adminPw      = (document.getElementById('adm-cfg-adminpw')?.value||'1234');
+  CFG.viewerPw     = (document.getElementById('adm-cfg-viewerpw')?.value||'view1234');
+  CFG.regPw        = (document.getElementById('adm-cfg-regpw')?.value||'1234');
   try{
     const toSave=JSON.parse(LS.getItem('tbm_cfg')||'{}');
     Object.assign(toSave,{company:CFG.company,supervisor:CFG.supervisor,supervisorPw:CFG.supervisorPw,adminPw:CFG.adminPw,viewerPw:CFG.viewerPw,regPw:CFG.regPw,teams:CFG.teams,ranks:CFG.ranks});
