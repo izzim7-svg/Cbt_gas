@@ -1173,8 +1173,8 @@ function waitForFirebase(cb, retry){
 
 function dbKey(s){ return (s||'').replace(/-/g,'').replace(/[.#$/\[\]\s]/g,'_'); }
 function safeKey(s){ return (s||'').replace(/[.#$/\[\]\s]/g,'_'); }
-// TBM 객체에서 Firebase 키 반환 (tbmKey 우선, 없으면 날짜만)
-function tbmDbKey(tbm){ return (tbm&&tbm.tbmKey) || dbKey((tbm&&tbm.date)||''); }
+// TBM 객체에서 Firebase 키 반환 (_fbKey > tbmKey > 날짜 순 우선)
+function tbmDbKey(tbm){ return (tbm&&(tbm._fbKey||tbm.tbmKey)) || dbKey((tbm&&tbm.date)||''); }
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
 async function dbSet(path, data){ if(!initDB()) throw new Error('DB없음'); await DB.ref(path).set(data); }
@@ -2699,22 +2699,24 @@ async function genPDFFromHistory(){
 // ══════════════════════════════════════════════════════════
 async function genPDF(){
   const team=LEAD_TEAM||CUR.team||'';
-  const key=tbmDbKey(TBM)||dbKey(TBM?TBM.date:todayStr());
+  const key=tbmDbKey(TBM);
   setSS('ing','PDF 데이터 불러오는 중...');
   let meetingDone=null;
-  try{
-    const [tbmData,sigsData,aData,doneData]=await Promise.all([
-      dbGet('tbm/'+team+'/'+key),
-      dbGet('sigs/'+team+'/'+key),
-      dbGet('assignments/'+team+'/'+key),
-      dbGet('meetings/'+team+'/'+key+'/done')
-    ]);
-    if(tbmData) TBM=tbmData;
-    if(sigsData) SIGS=Object.values(sigsData).filter(Boolean);
-    if(aData) ASSIGNED=Object.values(aData).filter(Boolean);
-    meetingDone=doneData||null;
-    setSS('ok','PDF 생성 중...');
-  }catch(e){}
+  if(key){
+    try{
+      const [tbmData,sigsData,aData,doneData]=await Promise.all([
+        dbGet('tbm/'+team+'/'+key),
+        dbGet('sigs/'+team+'/'+key),
+        dbGet('assignments/'+team+'/'+key),
+        dbGet('meetings/'+team+'/'+key+'/done')
+      ]);
+      if(tbmData) TBM=Object.assign({},tbmData,{_fbKey:key});
+      if(sigsData) SIGS=Object.values(sigsData).filter(Boolean);
+      if(aData) ASSIGNED=Object.values(aData).filter(Boolean);
+      meetingDone=doneData||null;
+    }catch(e){}
+  }
+  setSS('ok','PDF 생성 중...');
 
   const tbm=TBM||{};
 
