@@ -1154,6 +1154,8 @@ function waitForFirebase(cb, retry){
 
 function dbKey(s){ return (s||'').replace(/-/g,'').replace(/[.#$/\[\]\s]/g,'_'); }
 function safeKey(s){ return (s||'').replace(/[.#$/\[\]\s]/g,'_'); }
+// TBM 객체에서 Firebase 키 반환 (tbmKey 우선, 없으면 날짜만)
+function tbmDbKey(tbm){ return (tbm&&tbm.tbmKey) || dbKey((tbm&&tbm.date)||''); }
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
 async function dbSet(path, data){ if(!initDB()) throw new Error('DB없음'); await DB.ref(path).set(data); }
@@ -1338,45 +1340,44 @@ function startTBMWatcher(){
   if(tbmNotifListener) tbmNotifListener.off();
 
   const today = todayStr();
-  const path = 'tbm/' + CUR.team + '/' + dbKey(today);
-
+  // 오늘 TBM 중 가장 최근 저장 기준으로 감지
+  const path = 'tbm/' + CUR.team;
   tbmNotifListener = DB.ref(path);
   tbmNotifListener.on('value', function(snap){
-    const data = snap.val();
+    const allTbm = snap.val();
+    if(!allTbm) return;
+    const todayEntries = Object.values(allTbm).filter(Boolean)
+      .filter(function(t){ return t.date===today; })
+      .sort(function(a,b){ return (b.savedAt||0)-(a.savedAt||0); });
+    const data = todayEntries.length ? todayEntries[0] : null;
     if(!data) return;
+    const notifKey = CUR.team + '_' + tbmDbKey(data);
+    const tKey = tbmDbKey(data);
 
     // 이미 알림 받은 TBM인지 확인 (중복 방지)
-    const tbmKey = CUR.team + '_' + (data.date||today);
-    if(lastNotifKey === tbmKey) return;
+    if(lastNotifKey === notifKey) return;
 
     // 처음 로드 시엔 알림 안 보냄 (새로 등록된 것만)
     if(lastNotifKey === null){
-      lastNotifKey = tbmKey;
+      lastNotifKey = notifKey;
       return;
     }
 
-    lastNotifKey = tbmKey;
+    lastNotifKey = notifKey;
 
     // 이미 서명했는지 확인
-    dbGet('sigs/' + CUR.team + '/' + dbKey(today) + '/' + safeKey(CUR.name))
+    dbGet('sigs/' + CUR.team + '/' + tKey + '/' + safeKey(CUR.name))
       .then(function(sigData){
-        if(sigData) return; // 이미 서명 완료
-
-        // 배정 확인
-        dbGet('assignments/' + CUR.team + '/' + dbKey(today))
+        if(sigData) return;
+        dbGet('assignments/' + CUR.team + '/' + tKey)
           .then(function(aData){
             const assigned = aData ? Object.values(aData).filter(Boolean) : [];
-            // 배정자 없으면 알림 스킵 (배정 후에만 알림)
             if(assigned.length===0) return;
             const isAssigned = assigned.some(function(a){ return a.name === CUR.name; });
             if(!isAssigned) return;
-
             const title = '🔔 오늘의 TBM이 등록되었습니다';
             const body = (data.work||'작업 안전교육') + ' | ' + CUR.team + ' · ' + (data.lead||'');
-
-            // 브라우저 알림 (백그라운드)
             sendBrowserNotif(title, body);
-            // 인앱 배너 (포그라운드)
             showNotifBanner(title, body);
           });
       });
@@ -1387,25 +1388,30 @@ function startTBMWatcher(){
 function checkUnreadTBM(){
   if(!CUR) return;
   const today = todayStr();
-  Promise.all([
-    dbGet('tbm/' + CUR.team + '/' + dbKey(today)),
-    dbGet('sigs/' + CUR.team + '/' + dbKey(today) + '/' + safeKey(CUR.name)),
-    dbGet('assignments/' + CUR.team + '/' + dbKey(today))
-  ]).then(function(results){
-    const tbmData = results[0];
-    const sigData = results[1];
-    const aData   = results[2];
-    if(!tbmData) return;
-    if(sigData) return; // 이미 서명 완료
-    const assigned = aData ? Object.values(aData).filter(Boolean) : [];
-    if(assigned.length===0) return; // 배정자 없으면 알림 스킵
-    const isAssigned = assigned.some(function(a){ return a.name===CUR.name; });
-    if(!isAssigned) return;
-    // 미서명 상태 → 배너 표시
-    showNotifBanner(
-      '📋 미완료: TBM 서명이 필요합니다',
-      (tbmData.work||'오늘의 안전교육') + ' 내용을 확인하고 서명해주세요.'
-    );
+  dbGet('tbm/' + CUR.team).then(function(allTbm){
+    if(!allTbm) return;
+    const todayEntries = Object.values(allTbm).filter(Boolean)
+      .filter(function(t){ return t.date===today; })
+      .sort(function(a,b){ return (b.savedAt||0)-(a.savedAt||0); });
+    if(!todayEntries.length) return;
+    const tbmData = todayEntries[0];
+    const tKey = tbmDbKey(tbmData);
+    Promise.all([
+      dbGet('sigs/' + CUR.team + '/' + tKey + '/' + safeKey(CUR.name)),
+      dbGet('assignments/' + CUR.team + '/' + tKey)
+    ]).then(function(results){
+      const sigData = results[0];
+      const aData   = results[1];
+      if(sigData) return;
+      const assigned = aData ? Object.values(aData).filter(Boolean) : [];
+      if(assigned.length===0) return;
+      const isAssigned = assigned.some(function(a){ return a.name===CUR.name; });
+      if(!isAssigned) return;
+      showNotifBanner(
+        '📋 미완료: TBM 서명이 필요합니다',
+        (tbmData.work||'오늘의 안전교육') + ' 내용을 확인하고 서명해주세요.'
+      );
+    }).catch(function(){});
   }).catch(function(){});
 }
 
@@ -1725,11 +1731,14 @@ async function saveTBM(){
   const lead=document.getElementById('t-lead').value||CUR.name;
   const supervisor=document.getElementById('t-supervisor').value||CFG.supervisor||'';
   if(!date||!loc||!work||!danger||!safety){ alert2('입력 오류','날짜·장소·작업내용·위험요인·안전수칙은 필수입니다.'); return; }
-  TBM={date,time,endTime,loc,work,lead,supervisor,danger,safety,ppe,note,team:LEAD_TEAM,company:CFG.company};
+  if(!time){ alert2('입력 오류','시작 시간을 입력해주세요.\n(같은 날 여러 TBM 구분에 필요합니다.)'); return; }
+  // 키: 날짜_시작시간 (같은날 중복 TBM 구분)
+  const tbmKey = dbKey(date+'_'+time.replace(':',''));
+  TBM={date,time,endTime,loc,work,lead,supervisor,danger,safety,ppe,note,team:LEAD_TEAM,company:CFG.company,tbmKey};
   LS.setItem('tbm_data',JSON.stringify(TBM));
   setSS('ing','TBM 저장 중...');
   try{
-    await dbSet('tbm/'+LEAD_TEAM+'/'+dbKey(date), Object.assign({}, TBM, {savedAt:Date.now()}));
+    await dbSet('tbm/'+LEAD_TEAM+'/'+tbmKey, Object.assign({}, TBM, {savedAt:Date.now()}));
     setSS('ok','TBM 저장 완료 ✓');
     lStep(1);
   }catch(e){ setSS('err','저장 실패'); alert2('오류','TBM 저장 실패: '+e.message); }
@@ -1738,10 +1747,16 @@ async function saveTBM(){
 async function loadTBM(){
   if(!LEAD_TEAM) return;
   const date=document.getElementById('t-date').value;
+  const time=document.getElementById('t-time').value;
+  // time 있으면 날짜+시간 키, 없으면 날짜만 키로 시도
+  const key = (time) ? dbKey(date+'_'+time.replace(':','')) : dbKey(date);
   try{
-    const data=await dbGet('tbm/'+LEAD_TEAM+'/'+dbKey(date));
+    let data = await dbGet('tbm/'+LEAD_TEAM+'/'+key);
+    // 없으면 날짜만 키로 재시도 (구버전 데이터 하위호환)
+    if(!data && time) data = await dbGet('tbm/'+LEAD_TEAM+'/'+dbKey(date));
     if(data){
       TBM=data;
+      if(!TBM.tbmKey) TBM.tbmKey = key; // tbmKey 없으면 현재 키로 보정
       ['date','time','endtime','loc','work','danger','safety','ppe','note'].forEach(function(k){
         const el=document.getElementById('t-'+k); if(el&&data[k==='endtime'?'endTime':k]) el.value=data[k==='endtime'?'endTime':k];
       });
@@ -1785,7 +1800,7 @@ async function loadAssignList(){
     let prevAssigned = new Set();
     if(TBM){
       try{
-        const prev = await dbGet('assignments/'+LEAD_TEAM+'/'+dbKey(TBM.date));
+        const prev = await dbGet('assignments/'+LEAD_TEAM+'/'+tbmDbKey(TBM));
         if(prev) Object.values(prev).filter(Boolean).forEach(function(v){ prevAssigned.add(v.name); });
       }catch(e){}
     }
@@ -1943,7 +1958,7 @@ async function saveAssignment(){
 
   setSS('ing','참여자 저장 중...');
   try{
-    await dbSet('assignments/'+LEAD_TEAM+'/'+dbKey(TBM.date), assignObj);
+    await dbSet('assignments/'+LEAD_TEAM+'/'+tbmDbKey(TBM), assignObj);
     ASSIGNED = Object.values(assignObj);
     setSS('ok','참여자 '+ASSIGNED.length+'명 확정 ✓');
     lStep(2);
@@ -1962,34 +1977,48 @@ let STATUS_TAB = 'all'; // all | done | wait
 
 async function startStatusListener(){
   dbUnlisten(statusListener);
-  let date = TBM?TBM.date:todayStr();
-  try{
-    const tbmList=await dbGet('tbm/'+LEAD_TEAM);
-    if(tbmList){
-      const dates=Object.values(tbmList).filter(Boolean).map(function(t){ return t.date||''; }).filter(Boolean).sort();
-      if(dates.length>0) date=dates[dates.length-1];
-    }
-  }catch(e2){}
+
+  // TBM 객체가 있으면 그 키 우선 사용, 없으면 가장 최근 TBM 탐색
+  let tbmKey = TBM ? tbmDbKey(TBM) : null;
+  let date   = TBM ? TBM.date : todayStr();
+
+  if(!tbmKey){
+    try{
+      const tbmList=await dbGet('tbm/'+LEAD_TEAM);
+      if(tbmList){
+        const entries=Object.values(tbmList).filter(Boolean)
+          .sort(function(a,b){ return (b.savedAt||0)-(a.savedAt||0) }); // 가장 최근 저장 순
+        if(entries.length>0){
+          TBM=entries[0];
+          tbmKey=tbmDbKey(TBM);
+          date=TBM.date;
+        }
+      }
+    }catch(e2){}
+  }
+
+  if(!tbmKey) tbmKey = dbKey(date);
+
   // 배정 인원 로드
   try{
-    const aData=await dbGet('assignments/'+LEAD_TEAM+'/'+dbKey(date));
+    const aData=await dbGet('assignments/'+LEAD_TEAM+'/'+tbmKey);
     if(aData) ASSIGNED=Object.values(aData).filter(Boolean);
   }catch(e){}
 
   // 회의 완료 상태 확인
   try{
-    const doneData = await dbGet('meetings/'+LEAD_TEAM+'/'+dbKey(date)+'/done');
+    const doneData = await dbGet('meetings/'+LEAD_TEAM+'/'+tbmKey+'/done');
     renderMeetingDoneState(doneData);
   }catch(e){}
 
   // TBM 요약 표시
   renderLeadTBMSummary();
 
-  const path='sigs/'+LEAD_TEAM+'/'+dbKey(date);
+  const path='sigs/'+LEAD_TEAM+'/'+tbmKey;
   statusListener=dbListen(path, function(data){
     SIGS=data?Object.values(data).filter(Boolean):[];
     renderStatus();
-    renderHomeStatus(); // 홈 카드도 동기화
+    renderHomeStatus();
   });
 }
 
@@ -2104,16 +2133,19 @@ async function renderHomeStatus(){
   if(!team){ el.innerHTML='<p style="font-size:12px;color:var(--sub);text-align:center;padding:4px;">팀 정보 없음</p>'; return; }
   try{
     const today=todayStr();
-    let date=today;
+    let recentTbm=null, key=null;
     const tbmList=await dbGet('tbm/'+team);
     if(tbmList){
-      const dates=Object.values(tbmList).filter(Boolean).map(function(t){ return t.date||''; }).filter(Boolean).sort();
-      if(dates.length>0) date=dates[dates.length-1];
+      const entries=Object.values(tbmList).filter(Boolean)
+        .sort(function(a,b){ return (b.savedAt||0)-(a.savedAt||0); });
+      if(entries.length>0){ recentTbm=entries[0]; key=tbmDbKey(recentTbm); }
     }
+    const date=recentTbm?recentTbm.date:today;
+    if(!key) key=dbKey(date);
     const [aData,sigsData,doneData]=await Promise.all([
-      dbGet('assignments/'+team+'/'+dbKey(date)),
-      dbGet('sigs/'+team+'/'+dbKey(date)),
-      dbGet('meetings/'+team+'/'+dbKey(date)+'/done')
+      dbGet('assignments/'+team+'/'+key),
+      dbGet('sigs/'+team+'/'+key),
+      dbGet('meetings/'+team+'/'+key+'/done')
     ]);
     const assigned=aData?Object.values(aData).filter(Boolean):[];
     const sigs=sigsData?Object.values(sigsData).filter(Boolean):[];
@@ -2173,7 +2205,7 @@ async function completeMeeting(){
   const doneData={at:TBM.date+' '+timeStr, by:CUR.name, sig:done, total:total};
 
   try{
-    await dbSet('meetings/'+LEAD_TEAM+'/'+dbKey(TBM.date)+'/done', doneData);
+    await dbSet('meetings/'+LEAD_TEAM+'/'+tbmDbKey(TBM)+'/done', doneData);
     renderMeetingDoneState(doneData);
     renderHomeStatus();
     alert2('완료 처리','TBM 회의가 완료 처리되었습니다.\n\n서명 완료: '+done+'명 / 전체: '+total+'명\n완료 시각: '+timeStr);
@@ -2237,21 +2269,30 @@ async function loadMemberTBMByTeam(){
 }
 
 async function loadMemberTBM(team){
-  // 오늘 TBM 로드
   const today=todayStr();
   const content=document.getElementById('m-tbm-content');
   content.innerHTML='<p style="color:var(--sub);font-size:13px;"><span class="spin"></span>교육 내용 불러오는 중...</p>';
   try{
-    const tbmData=await dbGet('tbm/'+team+'/'+dbKey(today));
+    // 오늘 TBM 중 가장 최근 저장된 것 로드 (savedAt 기준)
+    const tbmList=await dbGet('tbm/'+team);
+    let tbmData=null, tbmKey=null;
+    if(tbmList){
+      const todayEntries=Object.values(tbmList).filter(Boolean)
+        .filter(function(t){ return t.date===today; })
+        .sort(function(a,b){ return (b.savedAt||0)-(a.savedAt||0); });
+      if(todayEntries.length>0){
+        tbmData=todayEntries[0];
+        tbmKey=tbmDbKey(tbmData);
+      }
+    }
     if(!tbmData){ document.getElementById('ms-none').style.display='block';
       document.getElementById('ms-main').style.display='none'; return; }
     TBM=tbmData;
 
-    // 배정 확인 — 배정자 목록 기준으로 엄격 체크
-    const aData=await dbGet('assignments/'+team+'/'+dbKey(today));
+    // 배정 확인
+    const aData=await dbGet('assignments/'+team+'/'+tbmKey);
     const assigned=aData?Object.values(aData).filter(Boolean):[];
     if(assigned.length===0){
-      // 배정자가 아직 없음 → 서명 불가
       content.innerHTML='<div style="background:var(--orb);border-radius:8px;padding:12px;font-size:13px;color:var(--or);">⚠️ 아직 참여자가 배정되지 않았습니다.<br>TBM 진행자에게 문의하세요.</div>';
       document.getElementById('ms-main').style.display='block';
       document.getElementById('ms-sign-section').style.display='none';
@@ -2266,7 +2307,7 @@ async function loadMemberTBM(team){
     }
 
     // 이미 서명했는지 확인
-    const sigData=await dbGet('sigs/'+team+'/'+dbKey(today)+'/'+safeKey(CUR.name));
+    const sigData=await dbGet('sigs/'+team+'/'+tbmKey+'/'+safeKey(CUR.name));
     if(sigData){
       document.getElementById('already-signed-banner').style.display='block';
       document.getElementById('already-signed-time').textContent='서명 시각: '+sigData.time;
@@ -2377,7 +2418,7 @@ async function submitSig(){
   };
   setSS('ing','서명 저장 중...');
   try{
-    await dbSet('sigs/'+sigTeam+'/'+dbKey(date)+'/'+safeKey(CUR.name), record);
+    await dbSet('sigs/'+sigTeam+'/'+tbmDbKey(TBM)+'/'+safeKey(CUR.name), record);
     setSS('ok','서명 저장 완료 ✓');
     // 완료 화면
     document.getElementById('done-msg').innerHTML=
@@ -2941,7 +2982,7 @@ async function submitOnsiteSig(){
   };
 
   try{
-    await dbSet('sigs/'+sigTeam+'/'+dbKey(date)+'/'+safeKey(ONSITE_SIGNER.name), record);
+    await dbSet('sigs/'+sigTeam+'/'+tbmDbKey(TBM)+'/'+safeKey(ONSITE_SIGNER.name), record);
     const signerName = ONSITE_SIGNER.name; // closeOnsiteSig 전에 미리 저장
     closeOnsiteSig();
     alert2('서명 완료', signerName + '님의 현장 서명이 저장되었습니다.\n\n다음 미서명자에게 기기를 전달해주세요.');
