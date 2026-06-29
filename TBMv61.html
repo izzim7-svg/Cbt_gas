@@ -875,30 +875,54 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
 
   <!-- 탭4: 설정 -->
   <div id="adc4" style="display:none;">
+
+    <!-- 기본 설정 카드 -->
     <div class="card">
-      <div class="card-title">⚙️ 시스템 설정</div>
+      <div class="card-title">⚙️ 기본 설정</div>
       <div class="field"><label>회사명</label><input type="text" id="adm-cfg-company" placeholder="(주)안전건설"></div>
       <div class="field"><label>관리감독자 이름</label><input type="text" id="adm-cfg-supervisor" placeholder="홍길동"></div>
       <div class="field"><label>관리감독자 로그인 비밀번호</label><input type="password" id="adm-cfg-suppw"></div>
-      <div style="height:1px;background:var(--bd);margin:10px 0;"></div>
-      <div style="font-size:12px;font-weight:700;color:var(--pur);margin-bottom:4px;">📝 TBM 교육주관자 지정</div>
-      <div style="font-size:11px;color:var(--sub);margin-bottom:8px;">지정된 직원만 TBM 작성·관리 메뉴에 접근 가능합니다. 아무도 지정 안 하면 전체 허용.</div>
-      <div id="adm-lead-users-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:32px;background:var(--gyb);border-radius:8px;padding:8px;"></div>
-      <div style="display:flex;gap:6px;">
-        <select id="adm-lead-user-sel" style="flex:1;padding:8px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;">
-          <option value="">-- 직원 선택 --</option>
-        </select>
-        <button class="btn btn-pr btn-sm" onclick="addLeadUser()" style="width:auto;padding:0 14px;">추가</button>
-      </div>
-      <div style="height:1px;background:var(--bd);margin:10px 0;"></div>
+    </div>
+
+    <!-- 비밀번호 설정 카드 -->
+    <div class="card">
+      <div class="card-title">🔐 비밀번호 설정</div>
+      <div style="font-size:12px;font-weight:700;color:var(--rd);margin-bottom:6px;">관리자 접속 비밀번호 (전체 권한)</div>
       <div class="field"><input type="password" id="adm-cfg-adminpw" placeholder="관리자 비밀번호 변경"></div>
-      <div style="font-size:12px;font-weight:700;color:var(--or);margin-bottom:6px;">👁️ 조회 전용 비밀번호 (읽기·엑셀만 가능)</div>
+      <div style="font-size:12px;font-weight:700;color:var(--or);margin-bottom:6px;">👁️ 조회 전용 비밀번호 (읽기·출력만 가능)</div>
       <div class="field"><input type="password" id="adm-cfg-viewerpw" placeholder="조회 전용 비밀번호 변경"></div>
-      <div style="height:1px;background:var(--bd);margin:10px 0;"></div>
       <div style="font-size:12px;font-weight:700;color:var(--or);margin-bottom:6px;">🔒 관리감독자 등록 비밀번호</div>
       <div class="field"><input type="password" id="adm-cfg-regpw" placeholder="등록 비밀번호 변경"></div>
-      <button class="btn btn-pr" onclick="aSaveCfg()">💾 설정 저장</button>
     </div>
+
+    <!-- TBM 교육주관자 지정 카드 -->
+    <div class="card">
+      <div class="card-title">📝 TBM 교육주관자 지정</div>
+      <p style="font-size:13px;color:var(--sub);margin-bottom:12px;">
+        지정된 직원만 <strong>TBM 작성·관리</strong> 메뉴에 접근할 수 있습니다.<br>
+        아무도 지정하지 않으면 <strong>전체 직원 허용</strong>입니다.
+      </p>
+
+      <!-- 현재 교육주관자 목록 -->
+      <div style="font-size:12px;font-weight:700;color:var(--tx);margin-bottom:6px;">현재 지정된 교육주관자</div>
+      <div id="adm-lead-users-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;min-height:38px;background:var(--gyb);border-radius:10px;padding:10px;align-items:center;"></div>
+
+      <!-- 직원 추가 -->
+      <div style="font-size:12px;font-weight:700;color:var(--tx);margin-bottom:6px;">직원 추가</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="adm-lead-user-sel" style="flex:1;padding:10px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;background:var(--gyb);">
+          <option value="">-- 직원 선택 --</option>
+        </select>
+        <button class="btn btn-pr" onclick="addLeadUser()" style="width:auto;padding:0 18px;height:42px;flex-shrink:0;">+ 추가</button>
+      </div>
+    </div>
+
+    <!-- 저장 버튼 -->
+    <div style="padding:0 12px 12px;">
+      <button class="btn btn-pr" onclick="aSaveCfg()" style="font-size:15px;">💾 설정 저장</button>
+    </div>
+
+    <!-- 관리감독자 등록 카드 -->
     <div class="card">
       <div class="card-title">🛡️ 관리감독자 신규 등록</div>
       <div class="field"><label>이름</label><input type="text" id="adm-new-sup-name" placeholder="홍길동" maxlength="20"></div>
