@@ -881,9 +881,15 @@ label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-botto
       <div class="field"><label>관리감독자 이름</label><input type="text" id="adm-cfg-supervisor" placeholder="홍길동"></div>
       <div class="field"><label>관리감독자 로그인 비밀번호</label><input type="password" id="adm-cfg-suppw"></div>
       <div style="height:1px;background:var(--bd);margin:10px 0;"></div>
-      <div style="font-size:12px;font-weight:700;color:var(--pur);margin-bottom:6px;">📝 TBM 작성 허용 직책</div>
-      <div style="font-size:11px;color:var(--sub);margin-bottom:8px;">체크된 직책만 TBM 작성·관리 메뉴에 접근 가능합니다. 아무것도 체크 안 하면 전체 허용.</div>
-      <div id="adm-lead-ranks" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
+      <div style="font-size:12px;font-weight:700;color:var(--pur);margin-bottom:4px;">📝 TBM 교육주관자 지정</div>
+      <div style="font-size:11px;color:var(--sub);margin-bottom:8px;">지정된 직원만 TBM 작성·관리 메뉴에 접근 가능합니다. 아무도 지정 안 하면 전체 허용.</div>
+      <div id="adm-lead-users-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:32px;background:var(--gyb);border-radius:8px;padding:8px;"></div>
+      <div style="display:flex;gap:6px;">
+        <select id="adm-lead-user-sel" style="flex:1;padding:8px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px;">
+          <option value="">-- 직원 선택 --</option>
+        </select>
+        <button class="btn btn-pr btn-sm" onclick="addLeadUser()" style="width:auto;padding:0 14px;">추가</button>
+      </div>
       <div style="height:1px;background:var(--bd);margin:10px 0;"></div>
       <div class="field"><input type="password" id="adm-cfg-adminpw" placeholder="관리자 비밀번호 변경"></div>
       <div style="font-size:12px;font-weight:700;color:var(--or);margin-bottom:6px;">👁️ 조회 전용 비밀번호 (읽기·엑셀만 가능)</div>
@@ -1138,7 +1144,8 @@ let CFG = {
   regPw:'1234', adminPw:'1234', viewerPw:'view1234',
   teams:['공급관리팀','안전관리팀','고객지원팀','기술팀','영업팀','경영관리팀','재무관리팀','임실지사','부안지사','진안지사'],
   ranks:['사원','계장','대리','과장','차장','부장','본부장','이사'],
-  leadRanks:[] // TBM 작성 허용 직책 목록 (빈 배열 = 전체 허용)
+  leadRanks:[], // (하위호환 유지)
+  leadUsers:[]  // TBM 교육주관자로 지정된 직원 이름 목록
 };
 let CUR = null; // 현재 로그인 사용자 {name, team, rank, role}
 let TBM = null;
@@ -1179,7 +1186,13 @@ function dbKey(s){ return (s||'').replace(/-/g,'').replace(/[.#$/\[\]\s]/g,'_');
 function safeKey(s){ return (s||'').replace(/[.#$/\[\]\s]/g,'_'); }
 // TBM 객체에서 Firebase 키 반환 (_fbKey > tbmKey > 날짜 순 우선)
 function tbmDbKey(tbm){ return (tbm&&(tbm._fbKey||tbm.tbmKey)) || dbKey((tbm&&tbm.date)||''); }
-function todayStr(){ return new Date().toISOString().slice(0,10); }
+function todayStr(){
+  const d=new Date();
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+day;
+}
 
 async function dbSet(path, data){ if(!initDB()) throw new Error('DB없음'); await DB.ref(path).set(data); }
 async function dbGet(path){
@@ -1238,6 +1251,7 @@ window.onload = function(){
       if(sc.adminPw)      CFG.adminPw      = sc.adminPw;
       if(sc.viewerPw)     CFG.viewerPw     = sc.viewerPw;
       if(sc.leadRanks)    CFG.leadRanks    = sc.leadRanks;
+      if(sc.leadUsers)    CFG.leadUsers    = sc.leadUsers;
     }
     // 항상 파일에 정의된 팀/직책으로 캐시 갱신
     const toSave = JSON.parse(LS.getItem('tbm_cfg')||'{}');
@@ -1689,12 +1703,14 @@ function buildHomeMenus(){
   }
 }
 
-// TBM 작성 권한 확인 (leadRanks 비어있으면 전체 허용)
+// TBM 작성 권한 확인
+// leadUsers에 이름이 있으면 해당 직원만 허용
+// leadUsers가 비어있으면 전체 허용 (미설정)
 function isLeadAllowed(){
   if(!CUR) return false;
-  if(CUR.role==='supervisor') return false; // 관리감독자는 팀이 없어 작성 불가
-  if(!CFG.leadRanks||CFG.leadRanks.length===0) return true; // 미설정 시 전체 허용
-  return CFG.leadRanks.indexOf(CUR.rank)!==-1;
+  if(CUR.role==='supervisor') return false;
+  if(!CFG.leadUsers||CFG.leadUsers.length===0) return true;
+  return CFG.leadUsers.indexOf(CUR.name)!==-1;
 }
 
 // 공통 메뉴 카드
@@ -3201,16 +3217,16 @@ function aTab(n){
     document.getElementById('adm-cfg-adminpw').value    = CFG.adminPw||'1234';
     document.getElementById('adm-cfg-viewerpw').value   = CFG.viewerPw||'view1234';
     document.getElementById('adm-cfg-regpw').value      = CFG.regPw||'1234';
-    // TBM 작성 허용 직책 체크박스 렌더
-    const rankBox = document.getElementById('adm-lead-ranks');
-    if(rankBox){
-      rankBox.innerHTML = CFG.ranks.map(function(r){
-        const chk = CFG.leadRanks.indexOf(r)!==-1 ? 'checked' : '';
-        return '<label style="display:flex;align-items:center;gap:5px;background:var(--gyb);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;">'
-          +'<input type="checkbox" name="lead-rank" value="'+r+'" '+chk+' style="accent-color:var(--pur);width:16px;height:16px;">'
-          +r+'</label>';
-      }).join('');
-    }
+    // 교육주관자 목록 렌더 + 직원 셀렉트 채우기
+    renderLeadUsersList();
+    dbGet('users').then(function(data){
+      const sel=document.getElementById('adm-lead-user-sel');
+      if(!sel||!data) return;
+      const users=Object.values(data).filter(function(u){ return u&&u.name&&u.role!=='supervisor'; })
+        .sort(function(a,b){ return (a.team||'').localeCompare(b.team||''); });
+      sel.innerHTML='<option value="">-- 직원 선택 --</option>'
+        +users.map(function(u){ return '<option value="'+u.name+'">'+u.name+' ('+u.team+' · '+u.rank+')</option>'; }).join('');
+    }).catch(function(){});
   }
   if(n===5){
     // 교육시간 탭 초기화
@@ -4251,18 +4267,46 @@ function aSaveCfg(){
   CFG.adminPw      = (document.getElementById('adm-cfg-adminpw')?.value||'1234');
   CFG.viewerPw     = (document.getElementById('adm-cfg-viewerpw')?.value||'view1234');
   CFG.regPw        = (document.getElementById('adm-cfg-regpw')?.value||'1234');
-  // TBM 작성 허용 직책 수집
-  const leadRankBoxes = document.querySelectorAll('input[name="lead-rank"]:checked');
-  CFG.leadRanks = Array.from(leadRankBoxes).map(function(el){ return el.value; });
+  // TBM 교육주관자 목록 저장 (현재 CFG.leadUsers에 이미 반영되어 있음)
   try{
     const toSave=JSON.parse(LS.getItem('tbm_cfg')||'{}');
     Object.assign(toSave,{company:CFG.company,supervisor:CFG.supervisor,supervisorPw:CFG.supervisorPw,
       adminPw:CFG.adminPw,viewerPw:CFG.viewerPw,regPw:CFG.regPw,
-      teams:CFG.teams,ranks:CFG.ranks,leadRanks:CFG.leadRanks});
+      teams:CFG.teams,ranks:CFG.ranks,leadRanks:CFG.leadRanks,leadUsers:CFG.leadUsers});
     LS.setItem('tbm_cfg',JSON.stringify(toSave));
   }catch(e){}
   alert2('저장 완료',
-    'TBM 작성 허용 직책: '+(CFG.leadRanks.length?CFG.leadRanks.join(', '):'전체 허용')+'\n\n설정이 저장되었습니다.');
+    'TBM 교육주관자: '+(CFG.leadUsers&&CFG.leadUsers.length?CFG.leadUsers.join(', '):'전체 허용')+'\n\n설정이 저장되었습니다.');
+}
+
+function renderLeadUsersList(){
+  const el=document.getElementById('adm-lead-users-list');
+  if(!el) return;
+  if(!CFG.leadUsers||CFG.leadUsers.length===0){
+    el.innerHTML='<span style="font-size:12px;color:var(--sub);">지정된 교육주관자 없음 (전체 허용)</span>';
+    return;
+  }
+  el.innerHTML=CFG.leadUsers.map(function(name){
+    return '<span style="display:inline-flex;align-items:center;gap:5px;background:var(--purb);color:var(--pur);border-radius:20px;padding:4px 10px;font-size:12px;font-weight:700;">'
+      +'📝 '+name
+      +'<button onclick="removeLeadUser(\''+name+'\')" style="background:none;border:none;cursor:pointer;color:var(--rd);font-size:14px;line-height:1;padding:0;">×</button>'
+      +'</span>';
+  }).join('');
+}
+
+function addLeadUser(){
+  const sel=document.getElementById('adm-lead-user-sel');
+  const name=sel?sel.value:'';
+  if(!name){ alert2('선택 필요','직원을 선택해주세요.'); return; }
+  if(CFG.leadUsers.indexOf(name)!==-1){ alert2('중복','이미 교육주관자로 지정된 직원입니다.'); return; }
+  CFG.leadUsers.push(name);
+  renderLeadUsersList();
+  if(sel) sel.value='';
+}
+
+function removeLeadUser(name){
+  CFG.leadUsers=CFG.leadUsers.filter(function(n){ return n!==name; });
+  renderLeadUsersList();
 }
 
 // ── 관리감독자 신규 등록 ──
