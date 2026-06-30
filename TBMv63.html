@@ -1311,12 +1311,12 @@ window.onload = function(){
   buildSigninGrids();
   initCanvas();
 
-  // 세션 복원 (자동 로그인)
+  // 세션 복원 (자동 로그인) — Firebase CFG 로드 후 홈 이동
   const saved = LS.getItem('tbm_session');
   if(saved){
     try{
       CUR = JSON.parse(saved);
-      goHome();
+      loadFirebaseCfg().then(function(){ goHome(); }).catch(function(){ goHome(); });
       checkConn();
       return;
     }catch(e){ LS.removeItem('tbm_session'); }
@@ -1557,17 +1557,16 @@ async function doLogin(){
   if(name===CFG.supervisor && pw===CFG.supervisorPw){
     CUR = {name:name, team:'', rank:'관리감독자', role:'supervisor'};
     try{ LS.setItem('tbm_session', JSON.stringify(CUR)); }catch(e){}
-    goHome(); return;
+    loadFirebaseCfg().then(function(){ goHome(); }).catch(function(){ goHome(); });
+    return;
   }
 
   // 일반 직원 로그인
   setSS('ing','로그인 중...');
 
-  // iOS: Firebase 로드 확인 후 로그인 시도
   if(typeof firebase === 'undefined' || !firebase.database){
     showErr(errEl,'서버 초기화 중입니다. 2~3초 후 다시 시도해주세요.');
     setSS('err','Firebase 로드 대기 중');
-    // 자동 재시도
     waitForFirebase(function(){ initDB(); setSS('ok','연결됨. 다시 시도해주세요.'); });
     return;
   }
@@ -1580,7 +1579,8 @@ async function doLogin(){
     CUR = {name:data.name, team:data.team, rank:data.rank, role:data.role||'member'};
     try{ LS.setItem('tbm_session', JSON.stringify(CUR)); }catch(e){}
     setSS('ok','로그인 완료 ✓');
-    goHome();
+    // Firebase CFG 로드 완료 후 홈 이동 (교육주관자 권한 반영)
+    loadFirebaseCfg().then(function(){ goHome(); }).catch(function(){ goHome(); });
   }catch(e){
     showErr(errEl,'오류: '+e.message+'\n\n잠시 후 다시 시도해주세요.');
     setSS('err','연결 오류');
@@ -1616,7 +1616,7 @@ async function doJoin(){
     CUR = {name, team, rank, role:'member'};
     LS.setItem('tbm_session', JSON.stringify(CUR));
     setSS('ok','가입 완료 ✓');
-    goHome();
+    loadFirebaseCfg().then(function(){ goHome(); }).catch(function(){ goHome(); });
   }catch(e){ showErr(errEl,'오류: '+e.message); setSS('err',''); }
 }
 
@@ -1676,33 +1676,23 @@ function go(id){
 function goHome(){
   if(!CUR){ go('signin'); return; }
 
-  // 홈 사용자 정보 표시
   const ui = document.getElementById('home-user-info');
   const roleLabel = CUR.role==='supervisor'?'관리감독자':CUR.role==='lead'?'TBM 교육담당자':'팀원';
   if(ui) ui.textContent = CUR.name + ' · ' + (CUR.team||'') + ' · ' + roleLabel;
 
-  // Firebase에서 최신 설정 로드 후 홈 메뉴 빌드 (교육주관자 권한 즉시 반영)
-  loadFirebaseCfg().then(function(){
-    buildHomeMenus();
-  }).catch(function(){
-    buildHomeMenus();
-  });
+  // 홈 메뉴 빌드 (CFG.leadUsers는 이미 Firebase에서 로드된 상태)
+  buildHomeMenus();
 
   const qsb = document.getElementById('quick-sign-bar');
   if(qsb) qsb.style.display = CUR ? 'block' : 'none';
   go('home');
   checkConn();
-  // 홈 TBM 현황 카드 로드
   setTimeout(function(){ renderHomeStatus(); }, 600);
-  // 알림 권한 요청 + TBM 감지 리스너 시작 (팀원만)
-  // 모든 사용자 알림 수신
   requestNotifPermission();
   setTimeout(function(){
     startTBMWatcher();
     checkUnreadTBM();
   }, 1500);
-
-
 }
 
 function buildHomeMenus(){
