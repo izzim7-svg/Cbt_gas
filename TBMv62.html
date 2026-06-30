@@ -1206,6 +1206,28 @@ function waitForFirebase(cb, retry){
   setTimeout(function(){ waitForFirebase(cb, retry+1); }, 100);
 }
 
+// Firebase에서 시스템 설정 로드 → 모든 기기 동기화
+async function loadFirebaseCfg(){
+  if(!initDB()) return;
+  try{
+    const data = await dbGet('system/config');
+    if(!data) return;
+    // 비밀번호·교육주관자 등 기기 무관 설정 반영
+    if(data.company)      CFG.company      = data.company;
+    if(data.supervisor)   CFG.supervisor   = data.supervisor;
+    if(data.supervisorPw) CFG.supervisorPw = data.supervisorPw;
+    if(data.regPw)        CFG.regPw        = data.regPw;
+    if(data.adminPw)      CFG.adminPw      = data.adminPw;
+    if(data.viewerPw)     CFG.viewerPw     = data.viewerPw;
+    if(data.leadUsers)    CFG.leadUsers    = data.leadUsers;
+    if(data.leadRanks)    CFG.leadRanks    = data.leadRanks;
+    // localStorage에도 반영
+    try{ LS.setItem('tbm_cfg', JSON.stringify(Object.assign(
+      JSON.parse(LS.getItem('tbm_cfg')||'{}'), data
+    ))); }catch(e){}
+  }catch(e){}
+}
+
 function dbKey(s){ return (s||'').replace(/-/g,'').replace(/[.#$/\[\]\s]/g,'_'); }
 function safeKey(s){ return (s||'').replace(/[.#$/\[\]\s]/g,'_'); }
 // TBM 객체에서 Firebase 키 반환 (_fbKey > tbmKey > 날짜 순 우선)
@@ -1248,7 +1270,8 @@ function dbUnlisten(ref){ if(ref) ref.off(); }
 window.onload = function(){
   // iOS: Firebase SDK 로드 완료 후 초기화
   waitForFirebase(function(){
-    initDB(); // 미리 초기화해두기
+    initDB(); // 미리 초기화
+    loadFirebaseCfg(); // Firebase에서 시스템 설정 로드 (교육주관자 등 동기화)
   });
 
   var now = new Date();
@@ -1658,9 +1681,13 @@ function goHome(){
   const roleLabel = CUR.role==='supervisor'?'관리감독자':CUR.role==='lead'?'TBM 교육담당자':'팀원';
   if(ui) ui.textContent = CUR.name + ' · ' + (CUR.team||'') + ' · ' + roleLabel;
 
-  // 역할별 메뉴 빌드
-  buildHomeMenus();
-  // 팀원 전용 기능
+  // Firebase에서 최신 설정 로드 후 홈 메뉴 빌드 (교육주관자 권한 즉시 반영)
+  loadFirebaseCfg().then(function(){
+    buildHomeMenus();
+  }).catch(function(){
+    buildHomeMenus();
+  });
+
   const qsb = document.getElementById('quick-sign-bar');
   if(qsb) qsb.style.display = CUR ? 'block' : 'none';
   go('home');
@@ -4291,16 +4318,34 @@ function aSaveCfg(){
   CFG.adminPw      = (document.getElementById('adm-cfg-adminpw')?.value||'1234');
   CFG.viewerPw     = (document.getElementById('adm-cfg-viewerpw')?.value||'view1234');
   CFG.regPw        = (document.getElementById('adm-cfg-regpw')?.value||'1234');
-  // TBM 교육주관자 목록 저장 (현재 CFG.leadUsers에 이미 반영되어 있음)
-  try{
-    const toSave=JSON.parse(LS.getItem('tbm_cfg')||'{}');
-    Object.assign(toSave,{company:CFG.company,supervisor:CFG.supervisor,supervisorPw:CFG.supervisorPw,
-      adminPw:CFG.adminPw,viewerPw:CFG.viewerPw,regPw:CFG.regPw,
-      teams:CFG.teams,ranks:CFG.ranks,leadRanks:CFG.leadRanks,leadUsers:CFG.leadUsers});
-    LS.setItem('tbm_cfg',JSON.stringify(toSave));
-  }catch(e){}
-  alert2('저장 완료',
-    'TBM 교육주관자: '+(CFG.leadUsers&&CFG.leadUsers.length?CFG.leadUsers.join(', '):'전체 허용')+'\n\n설정이 저장되었습니다.');
+  // CFG.leadUsers는 addLeadUser/removeLeadUser에서 이미 갱신됨
+
+  const cfgToSave = {
+    company:CFG.company, supervisor:CFG.supervisor,
+    supervisorPw:CFG.supervisorPw, adminPw:CFG.adminPw,
+    viewerPw:CFG.viewerPw, regPw:CFG.regPw,
+    teams:CFG.teams, ranks:CFG.ranks,
+    leadRanks:CFG.leadRanks, leadUsers:CFG.leadUsers||[]
+  };
+
+  // localStorage 저장
+  try{ LS.setItem('tbm_cfg', JSON.stringify(cfgToSave)); }catch(e){}
+
+  // Firebase 저장 → 모든 기기에 동기화
+  if(initDB()){
+    DB.ref('system/config').set(cfgToSave)
+      .then(function(){
+        alert2('저장 완료',
+          'TBM 교육주관자: '+(CFG.leadUsers&&CFG.leadUsers.length?CFG.leadUsers.join(', '):'전체 허용')
+          +'\n\n설정이 저장되었습니다. (모든 기기에 즉시 적용)');
+      })
+      .catch(function(e){
+        alert2('저장 완료 (로컬만)',
+          'Firebase 저장 실패: '+e.message+'\n\n로컬에는 저장됐으나 다른 기기에는 적용되지 않습니다.');
+      });
+  } else {
+    alert2('저장 완료 (로컬만)','Firebase 미연결 상태입니다. 다른 기기에는 적용되지 않습니다.');
+  }
 }
 
 function renderLeadUsersList(){
