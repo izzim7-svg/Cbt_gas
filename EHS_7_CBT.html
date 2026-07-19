@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>온열질환 예방 CBT</title>
+<title>아차사고·위험성평가·TBM 통합교육 CBT</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
@@ -544,9 +544,9 @@ body { font-family:'Noto Sans KR', sans-serif; background:#fff; color:var(--gray
 <div id="landing">
 
   <div class="land-header">
-    <div class="land-kgs">SAFETY EDUCATION 2026·7</div>
-    <div class="land-title">온열질환 예방 CBT</div>
-    <div class="land-sub">산업안전보건법 제39조 · 폭염 대비 근로자 건강보호 대책</div>
+    <div class="land-kgs">SAFETY EDUCATION 2026</div>
+    <div class="land-title">아차사고·위험성평가·TBM<br>통합교육 CBT</div>
+    <div class="land-sub">산업안전보건법 제36조 · 하인리히 법칙 · 위험성평가 5단계</div>
   </div>
 
   <div class="land-divider"></div>
@@ -652,7 +652,7 @@ body { font-family:'Noto Sans KR', sans-serif; background:#fff; color:var(--gray
     </div>
     <div class="exam-progress">
       <div class="prog-bar-bg"><div class="prog-bar-fill" id="progFill" style="width:10%"></div></div>
-      <div class="prog-text" id="progText">1 / 5</div>
+      <div class="prog-text" id="progText">1 / 10</div>
     </div>
     <div class="exam-right">
       <div class="q-badge" id="qBadge">Q1</div>
@@ -798,7 +798,7 @@ const MAX_LEAVE = 3;
    상태
 ──────────────────────────────────────── */
 let currentQ     = 0;
-let answers      = new Array(10).fill(null);
+let answers      = new Array(5).fill(null);
 let userName     = "";
 let selectedRank = "";
 let selectedTeam = "";
@@ -922,7 +922,7 @@ const questions = [
 function initDots() {
   const nav = document.getElementById("dotNav");
   nav.innerHTML = "";
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 5; i++) {
     const d = document.createElement("div");
     let cls = "dot";
     if (i === currentQ)      cls += " current";
@@ -942,8 +942,8 @@ function renderQ() {
   document.getElementById("qTag").textContent    = `문제 ${currentQ + 1}`;
   document.getElementById("qText").textContent   = q.q;
   document.getElementById("qBadge").textContent  = `Q${currentQ + 1}`;
-  document.getElementById("progFill").style.width = `${(currentQ + 1) * 10}%`;
-  document.getElementById("progText").textContent = `${currentQ + 1} / ${questions.length}`;
+  document.getElementById("progFill").style.width = `${(currentQ + 1) * 20}%`;
+  document.getElementById("progText").textContent = `${currentQ + 1} / 5`;
 
   const c = document.getElementById("opts");
   c.innerHTML = "";
@@ -963,7 +963,7 @@ function renderQ() {
 
   const nb = document.getElementById("nextBtn");
   nb.onclick = null;
-  if (currentQ === 9) {
+  if (currentQ === 4) {
     nb.textContent = "제출하기 ✓";
     nb.className   = "nav-btn submit";
     nb.onclick     = function() { submitExam(); };
@@ -990,7 +990,7 @@ function selectAnswer(idx) {
 
 function goToQ(i) { currentQ = i; renderQ(); }
 function prevQ()  { if (currentQ > 0) { currentQ--; renderQ(); } }
-function nextQ()  { if (currentQ < 9) { currentQ++; renderQ(); } }
+function nextQ()  { if (currentQ < 4) { currentQ++; renderQ(); } }
 
 /* ────────────────────────────────────────
    시작
@@ -1004,7 +1004,7 @@ function startExam() {
   err.style.display = "none";
 
   userName = name;
-  currentQ = 0; answers = new Array(10).fill(null);
+  currentQ = 0; answers = new Array(5).fill(null);
   leaveCount = 0; leaveLog = []; examActive = true;
 
   document.getElementById("landing").style.display = "none";
@@ -1037,7 +1037,7 @@ function showResult(isAuto) {
   let correct = 0;
   answers.forEach((a,i) => { if (a === questions[i].ans) correct++; });
   const wrong = answers.filter((a,i) => a !== null && a !== questions[i].ans).length;
-  const rate  = Math.round(correct / questions.length * 100);
+  const rate  = Math.round(correct / 5 * 100);
 
   /* 응시자 카드 */
   document.getElementById("avCircle").textContent = userName.charAt(0);
@@ -1136,8 +1136,8 @@ function sendToSheet(correct, rate, isAuto) {
 
   const payload = new URLSearchParams({
     timestamp:getKST(), name:userName, rank:selectedRank, team:selectedTeam,
-    score:correct, total:questions.length, rate, grade:rate>=80?"우수":rate>=60?"보통":"미흡",
-    subject:"온열질환 예방", detail, leaveCount, leaveLog:leaveLogStr,
+    score:correct, total:5, rate, grade:rate>=80?"우수":rate>=60?"보통":"미흡",
+    subject:"아차사고·위험성평가·TBM", detail, leaveCount, leaveLog:leaveLogStr,
     autoSubmit: isAuto ? "자동제출" : "정상제출"
   }).toString();
 
@@ -1167,7 +1167,7 @@ function sendToSheet(correct, rate, isAuto) {
 /* ────────────────────────────────────────
    Apps Script 코드
 ──────────────────────────────────────── */
-const APPS_SCRIPT_CODE = `// ★ Google Apps Script — 온열질환 예방 CBT 결과 수집
+const APPS_SCRIPT_CODE = `// ★ Google Apps Script — 도시가스 CBT 결과 수집
 function doPost(e) {
   try {
     var ss    = SpreadsheetApp.openById("1nFx9ajgoRT5VA8XIkihIAgc55r1E1miCSPOWfzJiCRk");
@@ -1175,10 +1175,10 @@ function doPost(e) {
     if (sheet.getLastRow() === 0) {
       sheet.appendRow([
         "제출시각","응시자","직급","소속팀","점수","총점","정답률","등급","과목",
-        "Q1","Q2","Q3","Q4","Q5",
+        "Q1","Q2","Q3","Q4","Q5","Q6","Q7","Q8","Q9","Q10",
         "이탈횟수","이탈기록","제출방식"
       ]);
-      var h = sheet.getRange(1,1,1,17);
+      var h = sheet.getRange(1,1,1,22);
       h.setBackground("#1e40af").setFontColor("#ffffff").setFontWeight("bold");
       sheet.setFrozenRows(1);
     }
@@ -1188,12 +1188,13 @@ function doPost(e) {
       p.timestamp, p.name, p.rank, p.team,
       Number(p.score), Number(p.total), p.rate+"%", p.grade, p.subject,
       d[0]||"-",d[1]||"-",d[2]||"-",d[3]||"-",d[4]||"-",
+      d[5]||"-",d[6]||"-",d[7]||"-",d[8]||"-",d[9]||"-",
       Number(p.leaveCount), p.leaveLog, p.autoSubmit
     ]);
     var last=sheet.getLastRow(), sc=Number(p.score), lv=Number(p.leaveCount);
-    var bg = sc>=4?"#dcfce7":sc>=3?"#fef9c3":"#fee2e2";
+    var bg = sc>=8?"#dcfce7":sc>=6?"#fef9c3":"#fee2e2";
     if(lv>3) bg="#fecaca";
-    sheet.getRange(last,1,1,17).setBackground(bg);
+    sheet.getRange(last,1,1,22).setBackground(bg);
     return ContentService.createTextOutput(JSON.stringify({result:"ok"}))
       .setMimeType(ContentService.MimeType.JSON);
   } catch(err) {
@@ -1260,7 +1261,7 @@ function retryExam() {
 
    바꾸지 않으면 현재 열린 주소가 자동 사용됩니다.
 ════════════════════════════════════════════════════ */
-const EXAM_URL = "https://izzim7-svg.github.io/Cbt_gas/"; // ← 여기를 실제 URL로 교체
+const EXAM_URL = "https://izzim7-svg.github.io/Cbt_gas/EHS_6_CBT.html"; // ← 여기를 실제 URL로 교체
 
 function copyExamUrl() {
   navigator.clipboard.writeText(EXAM_URL).then(() => {
@@ -1475,7 +1476,7 @@ function renderAnalytics(rows) {
   const scores    = rows.map(r => Number(r["점수"]||r["score"]||0));
   const avgScore  = scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : 0;
   const maxScore  = scores.length ? Math.max(...scores) : 0;
-  const passCount = scores.filter(s => s >= 8).length; // 80% 이상
+  const passCount = scores.filter(s => s >= 4).length; // 80% 이상
   const passRate  = total ? Math.round(passCount/total*100) : 0;
 
   // 이탈 관련
@@ -1502,7 +1503,7 @@ function renderAnalytics(rows) {
 
   // 문제별 정답률 (Q1~Q10)
   const qStats = [];
-  for (let i=1; i<=10; i++) {
+  for (let i=1; i<=5; i++) {
     const key = `Q${i}`;
     const vals = rows.map(r => r[key]||"-");
     const correct = vals.filter(v=>v==="O").length;
@@ -1556,7 +1557,7 @@ function renderAnalytics(rows) {
   const maxTeamAvg  = Math.max(...teamEntries.map(([,v])=>v.sum/v.cnt), 1);
   const teamBarsHtml = teamEntries.map(([name,v]) => {
     const avg   = (v.sum/v.cnt).toFixed(1);
-    const width = Math.round((v.sum/v.cnt)/5*100);
+    const width = Math.round((v.sum/v.cnt)/10*100);
     const color = width>=80?"var(--green)":width>=60?"var(--primary)":"var(--orange)";
     return `
     <div class="bar-row">
@@ -1593,7 +1594,7 @@ function renderAnalytics(rows) {
   const tableRows = [...rows].sort((a,b)=>Number(b["점수"]||0)-Number(a["점수"]||0)).map((r,i) => {
     const sc  = Number(r["점수"]||0);
     const lv  = Number(r["이탈횟수"]||0);
-    const pill = sc>=8?"hi":sc>=6?"mid":"lo";
+    const pill = sc>=4?"hi":sc>=3?"mid":"lo";
     const cheatPill = lv===0?"clean":lv<=3?"warn":"danger";
     const cheatTxt  = lv===0?"정상":lv+"회";
     return `<tr>
